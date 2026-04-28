@@ -405,38 +405,108 @@
         ? "⛔ 최대 20장까지" : "➕ 한 장 추가";
     }
     
+    /**
+     * 하이브리드 병렬 처리:
+     * - 압축은 순차 (CPU/메모리 안전)
+     * - 업로드는 동시 최대 3개 (tmpfiles.org 부담 X, 네트워크 효율 ↑)
+     * - Producer(압축) → Queue → Workers(업로드 3개) 파이프라인
+     */
+    const UPLOAD_CONCURRENCY = 3;
+    
     async function submitAll() {
       if (photos.length === 0) return;
       
       const btn = document.getElementById('submit-btn');
       btn.disabled = true;
-      btn.textContent = "압축 중...";
+      btn.textContent = "처리 중...";
       document.getElementById('add-btn').disabled = true;
       document.querySelector('.multi-btn').disabled = true;
       document.querySelectorAll('.photo-card .remove').forEach(b => b.disabled = true);
       
+      const total = photos.length;
+      let compressedCount = 0;
+      let uploadedCount = 0;
+      
+      const updateBtnText = () => {
+        if (uploadedCount === total) {
+          btn.textContent = "마지막 단계...";
+        } else if (compressedCount < total) {
+          btn.textContent = `압축 ${compressedCount}/${total} · 업로드 ${uploadedCount}/${total}`;
+        } else {
+          btn.textContent = `업로드 ${uploadedCount}/${total}`;
+        }
+      };
+      
       try {
-        const urls = [];
-        for (let i = 0; i < photos.length; i++) {
-          const photo = photos[i];
-          
-          // 1. 압축 (각 사진을 300KB 이하로)
-          markCompressing(photo.id);
-          btn.textContent = `압축 중 (${i+1}/${photos.length})...`;
-          const compressedFile = await compressImage(photo.file);
-          
-          // 2. 업로드
-          markUploading(photo.id);
-          btn.textContent = `업로드 중 (${i+1}/${photos.length})...`;
-          const url = await uploadFile(compressedFile, pct => updateProgress(photo.id, pct));
-          urls.push({
-            slot: i + 1,
-            url: url,
-            originalName: photo.file.name,  // 원본 이름은 유지
-          });
-          markSuccess(photo.id);
+        const urls = new Array(total);  // slot 순서 유지
+        const uploadQueue = [];
+        let producerDone = false;
+        let firstError = null;
+        
+        // === Producer: 압축 (순차) ===
+        const producer = (async () => {
+          for (let i = 0; i < total; i++) {
+            if (firstError) break;
+            const photo = photos[i];
+            try {
+              markCompressing(photo.id);
+              const compressedFile = await compressImage(photo.file);
+              compressedCount++;
+              updateBtnText();
+              uploadQueue.push({
+                slotIdx: i,
+                photoId: photo.id,
+                originalName: photo.file.name,
+                file: compressedFile,
+              });
+            } catch (e) {
+              firstError = firstError || e;
+              throw e;
+            }
+          }
+          producerDone = true;
+        })();
+        
+        // === Workers: 업로드 (동시 N개) ===
+        async function worker() {
+          while (true) {
+            if (firstError) return;
+            
+            if (uploadQueue.length === 0) {
+              if (producerDone) return;  // 더 들어올 거 없음
+              await sleep(50);            // Producer 대기
+              continue;
+            }
+            
+            const task = uploadQueue.shift();
+            try {
+              markUploading(task.photoId);
+              const url = await uploadFile(task.file, pct => {
+                updateProgress(task.photoId, pct);
+              });
+              urls[task.slotIdx] = {
+                slot: task.slotIdx + 1,
+                url: url,
+                originalName: task.originalName,
+              };
+              markSuccess(task.photoId);
+              uploadedCount++;
+              updateBtnText();
+            } catch (e) {
+              firstError = firstError || e;
+              throw e;
+            }
+          }
         }
         
+        // Producer + Workers 동시 실행
+        const workers = [];
+        for (let w = 0; w < UPLOAD_CONCURRENCY; w++) {
+          workers.push(worker());
+        }
+        await Promise.all([producer, ...workers]);
+        
+        // === 매니페스트 업로드 ===
         const manifest = {
           createdAt: new Date().toISOString(),
           photoCount: urls.length,
@@ -456,6 +526,10 @@
         btn.disabled = false;
         btn.textContent = "다시 시도";
       }
+    }
+    
+    function sleep(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
     }
     
     /**
