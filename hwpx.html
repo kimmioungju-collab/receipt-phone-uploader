@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#2563eb">
+  <title>구매영수증 한글파일 생성기</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                   "Malgun Gothic", "Noto Sans KR", sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .container { max-width: 720px; margin: 0 auto; }
+    
+    /* 헤더 */
+    .header {
+      background: #2563eb;
+      color: white;
+      padding: 18px 16px;
+      border-radius: 12px 12px 0 0;
+      text-align: center;
+    }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header .author { font-size: 12px; opacity: 0.85; margin-top: 4px; }
+    
+    .content {
+      background: white;
+      padding: 18px;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    
+    .info-text {
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    
+    /* 액션 버튼들 */
+    .action-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .action-btn {
+      padding: 10px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      background: #f8fafc;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .action-btn:hover { background: #e2e8f0; }
+    .action-btn.primary {
+      background: #ecfdf5;
+      border-color: #86efac;
+      color: #166534;
+    }
+    .action-btn.primary:hover { background: #d1fae5; }
+    
+    /* 슬롯 영역 */
+    .slots {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 600px) {
+      .slots { grid-template-columns: repeat(3, 1fr); }
+    }
+    
+    .slot {
+      position: relative;
+      aspect-ratio: 1;
+      border: 2px dashed #cbd5e1;
+      border-radius: 8px;
+      background: #fafafa;
+      cursor: pointer;
+      overflow: hidden;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+    }
+    .slot.filled { border: 1px solid #94a3b8; background: white; }
+    .slot.drag-over { border-color: #2563eb; background: #eff6ff; }
+    .slot:hover { border-color: #94a3b8; }
+    .slot img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .slot .placeholder {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 12px;
+      padding: 8px;
+    }
+    .slot .placeholder .icon { font-size: 32px; margin-bottom: 4px; }
+    .slot .label-tag {
+      position: absolute;
+      top: 4px;
+      left: 4px;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+    .slot .remove {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      width: 22px;
+      height: 22px;
+      background: rgba(220,38,38,0.85);
+      color: white;
+      font-size: 12px;
+      border: none;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+    
+    input[type=file] { display: none; }
+    
+    /* 진행 상태 */
+    .status {
+      font-size: 12px;
+      color: #475569;
+      text-align: center;
+      margin-bottom: 12px;
+      min-height: 18px;
+    }
+    
+    .progress {
+      height: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      display: none;
+    }
+    .progress.show { display: block; }
+    .progress-bar {
+      height: 100%;
+      background: #2563eb;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    
+    /* 메인 액션 */
+    .generate-btn {
+      width: 100%;
+      padding: 14px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .generate-btn:active { background: #1d4ed8; }
+    .generate-btn:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+    }
+    
+    /* 폰 받기 모달 */
+    .modal-bg {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.5);
+      z-index: 100;
+      justify-content: center;
+      align-items: center;
+      padding: 16px;
+    }
+    .modal-bg.show { display: flex; }
+    .modal {
+      background: white;
+      border-radius: 12px;
+      max-width: 380px;
+      width: 100%;
+      padding: 20px;
+    }
+    .modal h2 { font-size: 16px; margin-bottom: 8px; }
+    .modal p { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+    
+    .code-input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 2px solid #cbd5e1;
+      border-radius: 6px;
+      font-size: 22px;
+      font-weight: bold;
+      text-align: center;
+      letter-spacing: 3px;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 12px;
+    }
+    .code-input:focus { outline: none; border-color: #2563eb; }
+    
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+    .modal-actions button {
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 13px;
+      border: none;
+    }
+    .btn-cancel {
+      background: #f1f5f9;
+      color: #475569;
+    }
+    .btn-confirm {
+      background: #2563eb;
+      color: white;
+      font-weight: 600;
+    }
+    .btn-confirm:disabled { background: #94a3b8; cursor: not-allowed; }
+    
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+      max-width: 90vw;
+      text-align: center;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #16a34a; }
+    .toast.error { background: #dc2626; }
+    
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📄 구매영수증 한글파일 생성기</h1>
+      <div class="author">제작 · 평택소방서 김명주</div>
+    </div>
+    <div class="content">
+      <p class="info-text">
+        사진 3장을 슬롯에 채우고 [한글파일 다운로드]를 누르세요.<br>
+        브라우저만으로 .hwpx 파일을 만듭니다.
+      </p>
+      
+      <div class="action-row">
+        <button class="action-btn" onclick="document.getElementById('multi-file').click()">
+          📂 사진 3장 한번에 선택
+        </button>
+        <button class="action-btn primary" onclick="openPhoneReceive()">
+          📱 폰에서 받기
+        </button>
+      </div>
+      <input type="file" id="multi-file" accept="image/*" multiple>
+      
+      <div class="slots">
+        <div class="slot" data-slot="0" onclick="openSlotPicker(0)">
+          <span class="label-tag">사진 1 (좌측 위)</span>
+          <div class="placeholder"><div class="icon">📷</div>탭해서 선택</div>
+        </div>
+        <div class="slot" data-slot="1" onclick="openSlotPicker(1)">
+          <span class="label-tag">사진 2 (우측 위)</span>
+          <div class="placeholder"><div class="icon">📷</div>탭해서 선택</div>
+        </div>
+        <div class="slot" data-slot="2" onclick="openSlotPicker(2)">
+          <span class="label-tag">사진 3 (아래)</span>
+          <div class="placeholder"><div class="icon">📷</div>탭해서 선택</div>
+        </div>
+      </div>
+      
+      <div class="status" id="status">사진 3장을 모두 채우면 생성 가능</div>
+      <div class="progress" id="progress"><div class="progress-bar" id="progress-bar"></div></div>
+      
+      <button class="generate-btn" id="generate-btn" disabled onclick="generateHwpx()">
+        한글파일 다운로드 (사진 0/3)
+      </button>
+    </div>
+    <div class="footer">
+      모든 처리는 브라우저에서 이루어집니다 · 사진은 서버에 저장되지 않습니다
+    </div>
+  </div>
+  
+  <!-- 슬롯별 파일 input (한 장씩) -->
+  <input type="file" id="slot-file-0" accept="image/*">
+  <input type="file" id="slot-file-1" accept="image/*">
+  <input type="file" id="slot-file-2" accept="image/*">
+  
+  <!-- 폰 받기 모달 -->
+  <div class="modal-bg" id="phone-modal">
+    <div class="modal">
+      <h2>📱 폰에서 받기</h2>
+      <p>폰에서 받은 7-8자리 숫자 코드를 입력하세요.</p>
+      <input class="code-input" id="phone-code" placeholder="예: 35551234"
+             inputmode="numeric" maxlength="12">
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closePhoneReceive()">취소</button>
+        <button class="btn-confirm" id="phone-receive-btn" disabled
+                onclick="receiveFromPhone()">받기</button>
+      </div>
+    </div>
+  </div>
+  
+  <div id="toast" class="toast"></div>
+  
+  <!-- ============================================================
+       hwpx 생성 라이브러리 (Python hwpx_inserter.py 포팅)
+       ============================================================ -->
+  <script>
+    // ===== 상수 =====
+    const PX_TO_HWPUNIT = 75;              // 96 DPI 기준
+    const HWPUNIT_PER_MM = 7200 / 25.4;
+    const CENTER_ALIGN_PARA_ID = '19';
+    const TARGET_CELLS = [[1,0], [1,1], [2,0]];
+    
+    const NS = {
+      hp:   'http://www.hancom.co.kr/hwpml/2011/paragraph',
+      hh:   'http://www.hancom.co.kr/hwpml/2011/head',
+      hc:   'http://www.hancom.co.kr/hwpml/2011/core',
+      hs:   'http://www.hancom.co.kr/hwpml/2011/section',
+      opf:  'http://www.idpf.org/2007/opf/',
+    };
+    
+    // ===== 유틸 =====
+    function pxToHu(px) { return Math.round(px * PX_TO_HWPUNIT); }
+    function huToMm(hu) { return hu / HWPUNIT_PER_MM; }
+    
+    function calcFitSize(orgW, orgH, cellW, cellH, marginRatio = 0.96) {
+      const availW = cellW * marginRatio;
+      const availH = cellH * marginRatio;
+      const scale = Math.min(availW / orgW, availH / orgH);
+      return [Math.round(orgW * scale), Math.round(orgH * scale)];
+    }
+    
+    /**
+     * MD5 해시의 base64 (한컴 manifest의 hashkey)
+     * 외부 라이브러리 없이 순수 JS로 구현.
+     */
+    async function makeHashKey(blob) {
+      // SubtleCrypto는 SHA만 지원하지만 한컴은 hashkey 형식만 맞으면 OK
+      // (실제로는 검증 안 하는 듯). MD5 흉내내는 대신 SHA-1 16바이트로.
+      // 한컴 출력에서도 base64 22자리 정도라 동일 길이로 맞춤.
+      const buf = await blob.arrayBuffer();
+      const hash = await crypto.subtle.digest('SHA-1', buf);
+      const bytes = new Uint8Array(hash).slice(0, 16);  // 16바이트 (MD5 길이)
+      return btoa(String.fromCharCode(...bytes));
+    }
+    
+    /**
+     * 이미지 압축 (Web Worker 없이 메인 스레드 - 3장이라 큰 부담 없음)
+     * EXIF 회전 + 300KB 이하 + JPEG 변환
+     */
+    async function compressImage(file) {
+      const MAX_BYTES = 300 * 1024;
+      const MAX_DIM = 1600;
+      
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
+      
+      let width = bitmap.width;
+      let height = bitmap.height;
+      const longSide = Math.max(width, height);
+      if (longSide > MAX_DIM) {
+        const scale = MAX_DIM / longSide;
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(bitmap, 0, 0, width, height);
+      bitmap.close();
+      
+      const qualities = [0.85, 0.75, 0.65, 0.55, 0.45, 0.35];
+      let blob = null;
+      for (const q of qualities) {
+        blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', q));
+        if (blob.size <= MAX_BYTES) break;
+      }
+      
+      while (blob.size > MAX_BYTES && Math.max(canvas.width, canvas.height) > 600) {
+        canvas.width = Math.round(canvas.width * 0.85);
+        canvas.height = Math.round(canvas.height * 0.85);
+        const bm2 = await createImageBitmap(file, { imageOrientation: 'from-image' });
+        const ctx2 = canvas.getContext('2d');
+        ctx2.drawImage(bm2, 0, 0, canvas.width, canvas.height);
+        bm2.close();
+        blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.7));
+      }
+      
+      // 최종 크기 확인을 위해 다시 디코딩
+      const finalBitmap = await createImageBitmap(blob);
+      const finalDims = { width: finalBitmap.width, height: finalBitmap.height };
+      finalBitmap.close();
+      
+      return { blob, dimensions: finalDims };
+    }
+    
+    /**
+     * XML 직렬화 — DOMParser/XMLSerializer 사용
+     * 출력 형식이 Python ElementTree와 동일하도록 namespace prefix 보존.
+     */
+    function serializeXml(doc) {
+      const serializer = new XMLSerializer();
+      let xml = serializer.serializeToString(doc);
+      // XML 선언 추가 (없으면)
+      if (!xml.startsWith('<?xml')) {
+        xml = '<?xml version=\'1.0\' encoding=\'UTF-8\' standalone=\'yes\'?>\n' + xml;
+      }
+      return xml;
+    }
+    
+    function parseXml(xmlText) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(xmlText, 'application/xml');
+      const errs = doc.getElementsByTagName('parsererror');
+      if (errs.length > 0) {
+        throw new Error('XML 파싱 오류: ' + errs[0].textContent);
+      }
+      return doc;
+    }
+    
+    /**
+     * 표 셀 정보 수집 — section0.xml에서 TARGET_CELLS 셀 찾기
+     */
+    function collectTargetCells(sectionDoc) {
+      const tbls = sectionDoc.getElementsByTagNameNS(NS.hp, 'tbl');
+      if (tbls.length === 0) throw new Error('표를 찾을 수 없습니다.');
+      const tbl = tbls[0];
+      
+      // 모든 hp:tc를 (row, col) 키로 매핑
+      const cellMap = {};
+      const trs = tbl.getElementsByTagNameNS(NS.hp, 'tr');
+      for (const tr of trs) {
+        const tcs = tr.getElementsByTagNameNS(NS.hp, 'tc');
+        for (const tc of tcs) {
+          // tc 직속 자식인지 확인 (중첩표 방지)
+          if (tc.parentNode !== tr) continue;
+          const addr = tc.getElementsByTagNameNS(NS.hp, 'cellAddr')[0];
+          if (!addr) continue;
+          const row = parseInt(addr.getAttribute('rowAddr'));
+          const col = parseInt(addr.getAttribute('colAddr'));
+          cellMap[`${row},${col}`] = tc;
+        }
+      }
+      
+      const targets = [];
+      for (const [row, col] of TARGET_CELLS) {
+        const tc = cellMap[`${row},${col}`];
+        if (!tc) throw new Error(`셀(${row},${col})을 찾을 수 없습니다.`);
+        const sz = tc.getElementsByTagNameNS(NS.hp, 'cellSz')[0];
+        const mg = tc.getElementsByTagNameNS(NS.hp, 'cellMargin')[0];
+        const w = parseInt(sz.getAttribute('width'));
+        const h = parseInt(sz.getAttribute('height'));
+        const ml = parseInt(mg.getAttribute('left') || 0);
+        const mr = parseInt(mg.getAttribute('right') || 0);
+        const mt = parseInt(mg.getAttribute('top') || 0);
+        const mb = parseInt(mg.getAttribute('bottom') || 0);
+        targets.push({
+          element: tc, row, col,
+          innerW: w - ml - mr,
+          innerH: h - mt - mb,
+        });
+      }
+      return targets;
+    }
+    
+    /**
+     * content.hpf의 manifest에 image 항목 추가
+     */
+    function registerInHpf(hpfDoc, binFiles) {
+      const manifests = hpfDoc.getElementsByTagNameNS(NS.opf, 'manifest');
+      if (manifests.length === 0) throw new Error('manifest를 찾을 수 없습니다.');
+      const manifest = manifests[0];
+      
+      for (const bf of binFiles) {
+        const item = hpfDoc.createElementNS(NS.opf, 'opf:item');
+        item.setAttribute('id', bf.itemId);
+        item.setAttribute('href', `BinData/${bf.binName}`);
+        item.setAttribute('media-type', bf.mime);
+        item.setAttribute('isEmbeded', '1');
+        item.setAttribute('hashkey', bf.hashkey);
+        manifest.appendChild(item);
+      }
+    }
+    
+    /**
+     * hp:pic 엘리먼트 생성 (Python의 create_pic_element 포팅)
+     */
+    function createPicElement(doc, picId, instid, bf, curW, curH, shapeComment) {
+      const orgW = bf.orgWHu;
+      const orgH = bf.orgHHu;
+      const scaleX = curW / orgW;
+      const scaleY = curH / orgH;
+      
+      const pic = doc.createElementNS(NS.hp, 'hp:pic');
+      const picAttrs = {
+        id: String(picId), zOrder: '0',
+        numberingType: 'PICTURE', textWrap: 'SQUARE',
+        textFlow: 'BOTH_SIDES', lock: '0',
+        dropcapstyle: 'None', href: '',
+        groupLevel: '0', instid: String(instid),
+        reverse: '0',
+      };
+      for (const [k, v] of Object.entries(picAttrs)) pic.setAttribute(k, v);
+      
+      // offset
+      const offset = doc.createElementNS(NS.hp, 'hp:offset');
+      offset.setAttribute('x', '0');
+      offset.setAttribute('y', '0');
+      pic.appendChild(offset);
+      
+      // orgSz
+      const orgSz = doc.createElementNS(NS.hp, 'hp:orgSz');
+      orgSz.setAttribute('width', String(orgW));
+      orgSz.setAttribute('height', String(orgH));
+      pic.appendChild(orgSz);
+      
+      // curSz
+      const curSz = doc.createElementNS(NS.hp, 'hp:curSz');
+      curSz.setAttribute('width', String(curW));
+      curSz.setAttribute('height', String(curH));
+      pic.appendChild(curSz);
+      
+      // flip
+      const flip = doc.createElementNS(NS.hp, 'hp:flip');
+      flip.setAttribute('horizontal', '0');
+      flip.setAttribute('vertical', '0');
+      pic.appendChild(flip);
+      
+      // rotationInfo
+      const rot = doc.createElementNS(NS.hp, 'hp:rotationInfo');
+      rot.setAttribute('angle', '0');
+      rot.setAttribute('centerX', String(Math.floor(curW / 2)));
+      rot.setAttribute('centerY', String(Math.floor(curH / 2)));
+      rot.setAttribute('rotateimage', '1');
+      pic.appendChild(rot);
+      
+      // renderingInfo
+      const rend = doc.createElementNS(NS.hp, 'hp:renderingInfo');
+      const matrices = [
+        ['transMatrix', [1, 0, 0, 0, 1, 0]],
+        ['scaMatrix',   [scaleX, 0, 0, 0, scaleY, 0]],
+        ['rotMatrix',   [1, 0, 0, 0, 1, 0]],
+      ];
+      for (const [tag, m] of matrices) {
+        const mat = doc.createElementNS(NS.hc, `hc:${tag}`);
+        for (let i = 0; i < m.length; i++) {
+          const v = m[i];
+          // Python의 :g 포맷 (소수점 자동, 정수는 그대로)
+          const str = Number.isInteger(v) ? String(v) : formatFloat(v);
+          mat.setAttribute(`e${i+1}`, str);
+        }
+        rend.appendChild(mat);
+      }
+      pic.appendChild(rend);
+      
+      // hc:img
+      const img = doc.createElementNS(NS.hc, 'hc:img');
+      img.setAttribute('binaryItemIDRef', bf.itemId);
+      img.setAttribute('bright', '0');
+      img.setAttribute('contrast', '0');
+      img.setAttribute('effect', 'REAL_PIC');
+      img.setAttribute('alpha', '0');
+      pic.appendChild(img);
+      
+      // imgRect (4점)
+      const rect = doc.createElementNS(NS.hp, 'hp:imgRect');
+      const rectPts = [[0, 0], [orgW, 0], [orgW, orgH], [0, orgH]];
+      for (let i = 0; i < rectPts.length; i++) {
+        const [x, y] = rectPts[i];
+        const pt = doc.createElementNS(NS.hc, `hc:pt${i}`);
+        pt.setAttribute('x', String(x));
+        pt.setAttribute('y', String(y));
+        rect.appendChild(pt);
+      }
+      pic.appendChild(rect);
+      
+      // imgClip
+      const clip = doc.createElementNS(NS.hp, 'hp:imgClip');
+      clip.setAttribute('left', '0');
+      clip.setAttribute('right', String(orgW));
+      clip.setAttribute('top', '0');
+      clip.setAttribute('bottom', String(orgH));
+      pic.appendChild(clip);
+      
+      // inMargin
+      const inMg = doc.createElementNS(NS.hp, 'hp:inMargin');
+      ['left', 'right', 'top', 'bottom'].forEach(k => inMg.setAttribute(k, '0'));
+      pic.appendChild(inMg);
+      
+      // imgDim
+      const dim = doc.createElementNS(NS.hp, 'hp:imgDim');
+      dim.setAttribute('dimwidth', String(orgW));
+      dim.setAttribute('dimheight', String(orgH));
+      pic.appendChild(dim);
+      
+      // effects
+      const effects = doc.createElementNS(NS.hp, 'hp:effects');
+      pic.appendChild(effects);
+      
+      // sz
+      const sz = doc.createElementNS(NS.hp, 'hp:sz');
+      sz.setAttribute('width', String(curW));
+      sz.setAttribute('widthRelTo', 'ABSOLUTE');
+      sz.setAttribute('height', String(curH));
+      sz.setAttribute('heightRelTo', 'ABSOLUTE');
+      sz.setAttribute('protect', '0');
+      pic.appendChild(sz);
+      
+      // pos
+      const pos = doc.createElementNS(NS.hp, 'hp:pos');
+      const posAttrs = {
+        treatAsChar: '1', affectLSpacing: '0',
+        flowWithText: '1', allowOverlap: '0',
+        holdAnchorAndSO: '0',
+        vertRelTo: 'PARA', horzRelTo: 'PARA',
+        vertAlign: 'TOP', horzAlign: 'LEFT',
+        vertOffset: '0', horzOffset: '0',
+      };
+      for (const [k, v] of Object.entries(posAttrs)) pos.setAttribute(k, v);
+      pic.appendChild(pos);
+      
+      // outMargin
+      const outMg = doc.createElementNS(NS.hp, 'hp:outMargin');
+      ['left', 'right', 'top', 'bottom'].forEach(k => outMg.setAttribute(k, '0'));
+      pic.appendChild(outMg);
+      
+      // shapeComment
+      const sc = doc.createElementNS(NS.hp, 'hp:shapeComment');
+      sc.textContent = shapeComment;
+      pic.appendChild(sc);
+      
+      return pic;
+    }
+    
+    /**
+     * Python의 :g 포맷과 동일한 부동소수점 출력
+     * 예: 0.5 → "0.5", 0.123456789 → "0.123457"
+     */
+    function formatFloat(v) {
+      // Python의 %g는 6자리 유효숫자
+      const s = v.toPrecision(6);
+      // 불필요한 0 제거 (Python처럼)
+      return parseFloat(s).toString();
+    }
+    
+    /**
+     * 한 셀에 그림 삽입
+     */
+    function insertIntoCell(doc, cell, bf, picId, instid) {
+      const tc = cell.element;
+      const subList = tc.getElementsByTagNameNS(NS.hp, 'subList')[0];
+      const p = subList.getElementsByTagNameNS(NS.hp, 'p')[0];
+      if (!p) throw new Error(`셀 (${cell.row},${cell.col}) 단락 없음`);
+      
+      // 가운데 정렬
+      p.setAttribute('paraPrIDRef', CENTER_ALIGN_PARA_ID);
+      subList.setAttribute('vertAlign', 'CENTER');
+      
+      const [curW, curH] = calcFitSize(
+        bf.orgWHu, bf.orgHHu, cell.innerW, cell.innerH
+      );
+      
+      const shapeComment = (
+        `그림입니다.\n` +
+        `원본 그림의 이름: ${bf.originalName}\n` +
+        `원본 그림의 크기: 가로 ${bf.pxW}pixel, 세로 ${bf.pxH}pixel`
+      );
+      
+      // hp:run 찾거나 생성 (p의 직속 자식만)
+      let run = null;
+      for (const child of p.children) {
+        if (child.localName === 'run' && child.namespaceURI === NS.hp) {
+          run = child;
+          break;
+        }
+      }
+      if (!run) {
+        run = doc.createElementNS(NS.hp, 'hp:run');
+        run.setAttribute('charPrIDRef', '0');
+        p.appendChild(run);
+      }
+      
+      const pic = createPicElement(doc, picId, instid, bf, curW, curH, shapeComment);
+      run.appendChild(pic);
+      
+      const t = doc.createElementNS(NS.hp, 'hp:t');
+      run.appendChild(t);
+      
+      return [curW, curH];
+    }
+    
+    /**
+     * 메인 함수: 템플릿에 이미지 3장 삽입한 새 hwpx Blob 반환
+     */
+    async function generateHwpxBlob(templateBlob, imageBlobs, progressCb) {
+      const report = (pct, msg) => progressCb && progressCb(pct, msg);
+      
+      if (imageBlobs.length !== 3) {
+        throw new Error('이미지는 정확히 3장이어야 합니다.');
+      }
+      
+      report(5, '템플릿 풀기...');
+      const zip = await JSZip.loadAsync(templateBlob);
+      
+      report(15, '이미지 압축 중...');
+      const binFiles = [];
+      for (let i = 0; i < imageBlobs.length; i++) {
+        report(15 + i * 15, `사진 ${i+1} 압축 중...`);
+        const result = await compressImage(imageBlobs[i]);
+        const binName = `image${i+1}.jpg`;
+        const itemId = `image${i+1}`;
+        
+        // BinData 폴더에 추가
+        zip.file(`BinData/${binName}`, result.blob);
+        
+        // hashkey 계산
+        const hashkey = await makeHashKey(result.blob);
+        
+        binFiles.push({
+          binName, itemId,
+          mime: 'image/jpg',
+          pxW: result.dimensions.width,
+          pxH: result.dimensions.height,
+          orgWHu: pxToHu(result.dimensions.width),
+          orgHHu: pxToHu(result.dimensions.height),
+          hashkey,
+          originalName: imageBlobs[i].name || `photo${i+1}.jpg`,
+        });
+      }
+      
+      report(60, '메타데이터 등록...');
+      // content.hpf 수정
+      const hpfText = await zip.file('Contents/content.hpf').async('text');
+      const hpfDoc = parseXml(hpfText);
+      registerInHpf(hpfDoc, binFiles);
+      const newHpfText = serializeXml(hpfDoc);
+      zip.file('Contents/content.hpf', newHpfText);
+      
+      report(70, '셀에 그림 삽입...');
+      // section0.xml 수정
+      const sectionText = await zip.file('Contents/section0.xml').async('text');
+      const sectionDoc = parseXml(sectionText);
+      const cells = collectTargetCells(sectionDoc);
+      
+      const picIdBase = 1074270550;
+      const instidBase = 500000 + Math.floor(Math.random() * 100000);
+      
+      for (let i = 0; i < cells.length; i++) {
+        insertIntoCell(
+          sectionDoc, cells[i], binFiles[i],
+          picIdBase + i, instidBase + i
+        );
+      }
+      
+      const newSectionText = serializeXml(sectionDoc);
+      zip.file('Contents/section0.xml', newSectionText);
+      
+      report(90, '파일 묶기...');
+      // ZIP으로 다시 묶기 (mimetype은 STORE, 나머지는 DEFLATE)
+      // JSZip은 자동으로 처리
+      const outputBlob = await zip.generateAsync({
+        type: 'blob',
+        mimeType: 'application/hwp+zip',
+        compression: 'DEFLATE',
+        compressionOptions: { level: 6 },
+      });
+      
+      report(100, '완료');
+      return outputBlob;
+    }
+    
+    // ============================================================
+    // UI 로직
+    // ============================================================
+    const slotImages = [null, null, null];  // [{file, name, dataUrl}]
+    
+    // 슬롯별 파일 input 이벤트
+    [0, 1, 2].forEach(idx => {
+      document.getElementById(`slot-file-${idx}`).addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (file) setSlot(idx, file);
+        e.target.value = '';
+      });
+    });
+    
+    // 멀티 선택 이벤트
+    document.getElementById('multi-file').addEventListener('change', e => {
+      const files = Array.from(e.target.files);
+      if (files.length > 3) {
+        showToast(`${files.length}장 중 앞 3장만 사용`, '');
+      }
+      files.slice(0, 3).forEach((file, i) => setSlot(i, file));
+      e.target.value = '';
+    });
+    
+    function openSlotPicker(idx) {
+      document.getElementById(`slot-file-${idx}`).click();
+    }
+    
+    function setSlot(idx, file) {
+      slotImages[idx] = file;
+      const slot = document.querySelector(`.slot[data-slot="${idx}"]`);
+      const reader = new FileReader();
+      reader.onload = e => {
+        slot.classList.add('filled');
+        slot.innerHTML = `
+          <span class="label-tag">사진 ${idx+1}</span>
+          <button class="remove" onclick="event.stopPropagation(); clearSlot(${idx})">✕</button>
+          <img src="${e.target.result}" alt="">
+        `;
+      };
+      reader.readAsDataURL(file);
+      updateButtonState();
+    }
+    
+    function clearSlot(idx) {
+      slotImages[idx] = null;
+      const slot = document.querySelector(`.slot[data-slot="${idx}"]`);
+      slot.classList.remove('filled');
+      const labels = ['사진 1 (좌측 위)', '사진 2 (우측 위)', '사진 3 (아래)'];
+      slot.innerHTML = `
+        <span class="label-tag">${labels[idx]}</span>
+        <div class="placeholder"><div class="icon">📷</div>탭해서 선택</div>
+      `;
+      updateButtonState();
+    }
+    
+    function updateButtonState() {
+      const filled = slotImages.filter(s => s !== null).length;
+      const btn = document.getElementById('generate-btn');
+      btn.disabled = filled !== 3;
+      btn.textContent = `한글파일 다운로드 (사진 ${filled}/3)`;
+      
+      const status = document.getElementById('status');
+      status.textContent = filled === 3
+        ? '준비 완료 - [한글파일 다운로드] 클릭'
+        : `사진 ${filled}/3 채워짐`;
+    }
+    
+    // ===== 한글파일 생성 =====
+    let templateCache = null;
+    
+    async function loadTemplate() {
+      if (templateCache) return templateCache;
+      // 같은 폴더의 template.hwpx 가져오기
+      const resp = await fetch('template.hwpx');
+      if (!resp.ok) throw new Error(`template.hwpx 로드 실패 (HTTP ${resp.status})`);
+      templateCache = await resp.blob();
+      return templateCache;
+    }
+    
+    async function generateHwpx() {
+      if (slotImages.some(s => s === null)) return;
+      
+      const btn = document.getElementById('generate-btn');
+      btn.disabled = true;
+      const progress = document.getElementById('progress');
+      const progressBar = document.getElementById('progress-bar');
+      const status = document.getElementById('status');
+      
+      progress.classList.add('show');
+      progressBar.style.width = '0%';
+      
+      try {
+        status.textContent = '템플릿 로드 중...';
+        const template = await loadTemplate();
+        
+        const blob = await generateHwpxBlob(template, slotImages, (pct, msg) => {
+          progressBar.style.width = pct + '%';
+          status.textContent = msg;
+        });
+        
+        // 다운로드 트리거
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '구매영수증.hwpx';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        
+        status.textContent = `완료 - ${(blob.size / 1024).toFixed(0)}KB`;
+        showToast('한글파일 다운로드 시작!', 'success');
+      } catch (e) {
+        console.error(e);
+        showToast(`오류: ${e.message}`, 'error');
+        status.textContent = '오류 발생';
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => progress.classList.remove('show'), 2000);
+      }
+    }
+    
+    // ===== 폰에서 받기 =====
+    function openPhoneReceive() {
+      document.getElementById('phone-modal').classList.add('show');
+      document.getElementById('phone-code').value = '';
+      document.getElementById('phone-receive-btn').disabled = true;
+      document.getElementById('phone-code').focus();
+    }
+    
+    function closePhoneReceive() {
+      document.getElementById('phone-modal').classList.remove('show');
+    }
+    
+    document.getElementById('phone-code').addEventListener('input', e => {
+      const v = e.target.value.replace(/\D/g, '');
+      if (v !== e.target.value) e.target.value = v;
+      document.getElementById('phone-receive-btn').disabled = !/^\d{6,10}$/.test(v);
+    });
+    
+    document.getElementById('phone-code').addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !document.getElementById('phone-receive-btn').disabled) {
+        receiveFromPhone();
+      }
+    });
+    
+    async function receiveFromPhone() {
+      const code = document.getElementById('phone-code').value.trim();
+      if (!/^\d{6,10}$/.test(code)) return;
+      
+      const btn = document.getElementById('phone-receive-btn');
+      btn.disabled = true;
+      btn.textContent = '받는 중...';
+      
+      try {
+        // 매니페스트 다운로드
+        const manifestUrl = `https://tmpfiles.org/dl/${code}/manifest.json`;
+        const resp = await fetch(manifestUrl);
+        if (!resp.ok) {
+          throw new Error('코드를 찾을 수 없습니다 (60분 지났거나 잘못된 코드)');
+        }
+        const manifest = await resp.json();
+        
+        if (!manifest.photos || manifest.photos.length === 0) {
+          throw new Error('매니페스트에 사진이 없습니다');
+        }
+        
+        showToast(`${manifest.photos.length}장 다운로드 시작...`, '');
+        closePhoneReceive();
+        
+        // 처음 3장만 슬롯에 채움
+        const photos = manifest.photos.slice(0, 3);
+        for (let i = 0; i < photos.length; i++) {
+          const photo = photos[i];
+          const dlUrl = photo.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
+          const photoResp = await fetch(dlUrl);
+          if (!photoResp.ok) throw new Error(`사진 ${i+1} 다운로드 실패`);
+          const blob = await photoResp.blob();
+          const file = new File([blob], photo.originalName || `photo${i+1}.jpg`, { type: blob.type });
+          setSlot(i, file);
+        }
+        
+        showToast(`${photos.length}장 받음!`, 'success');
+      } catch (e) {
+        console.error(e);
+        showToast(`실패: ${e.message}`, 'error');
+        btn.disabled = false;
+        btn.textContent = '받기';
+      }
+    }
+    
+    // ===== 토스트 =====
+    let toastTimer = null;
+    function showToast(msg, type = '') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.className = 'toast ' + type;
+      }, 2500);
+    }
+    
+    // ===== 드래그앤드롭 =====
+    document.querySelectorAll('.slot').forEach(slot => {
+      slot.addEventListener('dragover', e => {
+        e.preventDefault();
+        slot.classList.add('drag-over');
+      });
+      slot.addEventListener('dragleave', () => slot.classList.remove('drag-over'));
+      slot.addEventListener('drop', e => {
+        e.preventDefault();
+        slot.classList.remove('drag-over');
+        const idx = parseInt(slot.dataset.slot);
+        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (files.length === 1) {
+          setSlot(idx, files[0]);
+        } else if (files.length > 1) {
+          // 여러 장이면 idx부터 채움
+          for (let i = 0; i < files.length && idx + i < 3; i++) {
+            setSlot(idx + i, files[i]);
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
