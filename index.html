@@ -114,6 +114,40 @@
     
     input[type=file] { display: none; }
     
+    .multi-btn {
+      width: 100%;
+      padding: 14px;
+      background: #f0fdf4;
+      color: #166534;
+      border: 2px solid #86efac;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .multi-btn:active { background: #d1fae5; }
+    
+    .divider {
+      text-align: center;
+      margin: 14px 0 10px;
+      position: relative;
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .divider::before, .divider::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      width: 30%;
+      height: 1px;
+      background: #e2e8f0;
+    }
+    .divider::before { left: 0; }
+    .divider::after { right: 0; }
+    .divider span { background: white; padding: 0 8px; }
+    
     .submit-btn {
       width: 100%;
       padding: 14px;
@@ -214,9 +248,17 @@
     </div>
     <div class="content">
       <p class="info-text">
-        사진 3장을 차례로 선택한 뒤<br>
-        [PC로 보내기] 버튼을 누르세요.
+        사진 3장을 한 번에 선택하거나,<br>
+        각 슬롯을 탭해서 한 장씩 선택할 수 있어요.
       </p>
+      
+      <!-- 3장 한꺼번에 선택 버튼 -->
+      <button class="multi-btn" onclick="document.getElementById('multi-file').click()">
+        📂 사진 3장 한 번에 선택
+      </button>
+      <input type="file" id="multi-file" accept="image/*" multiple>
+      
+      <div class="divider"><span>또는 각각 선택</span></div>
       
       <div class="slot" data-slot="1" onclick="if(!this.classList.contains('uploading')) document.getElementById('file1').click()">
         <div class="slot-icon">📷</div>
@@ -272,6 +314,26 @@
         const file = e.target.files[0];
         if (file) showPreview(num, file);
       });
+    });
+    
+    // ===== 멀티 선택 이벤트 (3장 한 번에) =====
+    document.getElementById('multi-file').addEventListener('change', e => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+      
+      if (files.length > 3) {
+        showToast(`${files.length}장 선택됨 - 앞 3장만 사용합니다`, '');
+      } else if (files.length < 3) {
+        showToast(`${files.length}장만 선택됨 - 나머지는 직접 추가하세요`, '');
+      }
+      
+      // 슬롯 1, 2, 3 순서로 배치
+      files.slice(0, 3).forEach((file, idx) => {
+        showPreview(idx + 1, file);
+      });
+      
+      // input 초기화 (같은 파일 재선택 가능하게)
+      e.target.value = '';
     });
     
     function showPreview(slotNum, file) {
