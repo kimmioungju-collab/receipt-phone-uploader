@@ -958,6 +958,8 @@
     // tmpfiles.org는 /dl/ 응답에 CORS 헤더를 안 보내므로
     // 공개 CORS 프록시를 거쳐 받음 (1차 실패 시 2차로 폴백)
     const CORS_PROXIES = [
+      url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+      url => `https://thingproxy.freeboard.io/fetch/${url}`,
       url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
       url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
     ];
