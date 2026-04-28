@@ -411,7 +411,7 @@
      * - 업로드는 동시 최대 3개 (tmpfiles.org 부담 X, 네트워크 효율 ↑)
      * - Producer(압축) → Queue → Workers(업로드 3개) 파이프라인
      */
-    const UPLOAD_CONCURRENCY = 10;
+    const UPLOAD_CONCURRENCY = 3;
     
     async function submitAll() {
       if (photos.length === 0) return;
