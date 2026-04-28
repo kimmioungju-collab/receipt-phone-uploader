@@ -955,39 +955,61 @@
       }
     });
     
+    // tmpfiles.org는 /dl/ 응답에 CORS 헤더를 안 보내므로
+    // 공개 CORS 프록시를 거쳐 받음 (1차 실패 시 2차로 폴백)
+    const CORS_PROXIES = [
+      url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+      url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    ];
+
+    async function fetchViaProxy(url) {
+      let lastErr = null;
+      for (const wrap of CORS_PROXIES) {
+        try {
+          const resp = await fetch(wrap(url));
+          if (resp.ok) return resp;
+          lastErr = new Error(`HTTP ${resp.status}`);
+        } catch (e) {
+          lastErr = e;
+        }
+      }
+      throw lastErr || new Error('프록시 다운로드 실패');
+    }
+
     async function receiveFromPhone() {
       const code = document.getElementById('phone-code').value.trim();
       if (!/^\d{6,10}$/.test(code)) return;
-      
+
       const btn = document.getElementById('phone-receive-btn');
       btn.disabled = true;
       btn.textContent = '받는 중...';
-      
+
       try {
         // 매니페스트 다운로드
         const manifestUrl = `https://tmpfiles.org/dl/${code}/manifest.json`;
-        const resp = await fetch(manifestUrl);
-        if (!resp.ok) {
+        let resp;
+        try {
+          resp = await fetchViaProxy(manifestUrl);
+        } catch (e) {
           throw new Error('코드를 찾을 수 없습니다 (60분 지났거나 잘못된 코드)');
         }
         const manifest = await resp.json();
-        
+
         if (!manifest.photos || manifest.photos.length === 0) {
           throw new Error('매니페스트에 사진이 없습니다');
         }
-        
+
         showToast(`${manifest.photos.length}장 다운로드 시작...`, '');
         closePhoneReceive();
-        
+
         // 처음 3장만 슬롯에 채움
         const photos = manifest.photos.slice(0, 3);
         for (let i = 0; i < photos.length; i++) {
           const photo = photos[i];
           const dlUrl = photo.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
-          const photoResp = await fetch(dlUrl);
-          if (!photoResp.ok) throw new Error(`사진 ${i+1} 다운로드 실패`);
+          const photoResp = await fetchViaProxy(dlUrl);
           const blob = await photoResp.blob();
-          const file = new File([blob], photo.originalName || `photo${i+1}.jpg`, { type: blob.type });
+          const file = new File([blob], photo.originalName || `photo${i+1}.jpg`, { type: blob.type || 'image/jpeg' });
           setSlot(i, file);
         }
         
