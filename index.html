@@ -407,10 +407,11 @@
     
     /**
      * 하이브리드 병렬 처리:
-     * - 압축은 순차 (CPU/메모리 안전)
-     * - 업로드는 동시 최대 3개 (tmpfiles.org 부담 X, 네트워크 효율 ↑)
-     * - Producer(압축) → Queue → Workers(업로드 3개) 파이프라인
+     * - 압축 동시 3개 (Producer pool)
+     * - 업로드 동시 3개 (Worker pool)
+     * - Producers(압축 3개) → Queue → Workers(업로드 3개) 파이프라인
      */
+    const COMPRESS_CONCURRENCY = 3;
     const UPLOAD_CONCURRENCY = 3;
     
     async function submitAll() {
@@ -443,10 +444,13 @@
         let producerDone = false;
         let firstError = null;
         
-        // === Producer: 압축 (순차) ===
-        const producer = (async () => {
-          for (let i = 0; i < total; i++) {
-            if (firstError) break;
+        // === Producers: 압축 (동시 N개) ===
+        let nextCompressIdx = 0;
+        async function compressWorker() {
+          while (true) {
+            if (firstError) return;
+            const i = nextCompressIdx++;
+            if (i >= total) return;
             const photo = photos[i];
             try {
               markCompressing(photo.id);
@@ -464,6 +468,13 @@
               throw e;
             }
           }
+        }
+        const compressors = [];
+        for (let c = 0; c < COMPRESS_CONCURRENCY; c++) {
+          compressors.push(compressWorker());
+        }
+        const producer = (async () => {
+          await Promise.all(compressors);
           producerDone = true;
         })();
         

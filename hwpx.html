@@ -1004,16 +1004,15 @@
         showToast(`${manifest.photos.length}장 다운로드 시작...`, '');
         closePhoneReceive();
 
-        // 처음 3장만 슬롯에 채움
+        // 처음 3장만 슬롯에 채움 (병렬 다운로드)
         const photos = manifest.photos.slice(0, 3);
-        for (let i = 0; i < photos.length; i++) {
-          const photo = photos[i];
+        await Promise.all(photos.map(async (photo, i) => {
           const dlUrl = photo.url.replace('tmpfiles.org/', 'tmpfiles.org/dl/');
           const photoResp = await fetchViaProxy(dlUrl);
           const blob = await photoResp.blob();
           const file = new File([blob], photo.originalName || `photo${i+1}.jpg`, { type: blob.type || 'image/jpeg' });
           setSlot(i, file);
-        }
+        }));
         
         showToast(`${photos.length}장 받음!`, 'success');
       } catch (e) {
