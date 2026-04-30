@@ -416,7 +416,12 @@
     
     async function submitAll() {
       if (photos.length === 0) return;
-      
+
+      // 사용 횟수 집계 (사진은 수집 X, 클릭 횟수만 카운트)
+      if (window.goatcounter && window.goatcounter.count) {
+        window.goatcounter.count({ path: 'click-send', title: 'PC로 보내기 클릭', event: true });
+      }
+
       const btn = document.getElementById('submit-btn');
       btn.disabled = true;
       btn.textContent = "처리 중...";
@@ -718,5 +723,7 @@
       }, 2500);
     }
   </script>
+  <!-- GoatCounter: 익명 방문/클릭 카운트 (사진/IP는 수집되지 않음) -->
+  <script data-goatcounter="https://myreceipt.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
