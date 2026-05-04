@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#2563eb">
   <title>구매영수증 사진 업로드</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body {
@@ -25,6 +26,31 @@
       text-align: center;
     }
     .header h1 { font-size: 17px; font-weight: 600; }
+
+    /* 탭 전환 */
+    .tab-bar {
+      display: flex;
+      background: #e2e8f0;
+      border-radius: 0;
+      overflow: hidden;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 12px 8px;
+      border: none;
+      background: #e2e8f0;
+      color: #64748b;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .tab-btn.active {
+      background: white;
+      color: #2563eb;
+    }
+
     .content {
       background: white;
       padding: 16px;
@@ -111,9 +137,9 @@
     }
     .slot.success .status-icon { background: #16a34a; }
     .slot.error .status-icon { background: #dc2626; }
-    
+
     input[type=file] { display: none; }
-    
+
     .submit-btn {
       width: 100%;
       padding: 14px;
@@ -132,7 +158,7 @@
       background: #cbd5e1;
       cursor: not-allowed;
     }
-    
+
     .result-box {
       display: none;
       background: #f0fdf4;
@@ -179,7 +205,7 @@
       cursor: pointer;
     }
     .copy-btn:active { background: #ecfdf5; }
-    
+
     .toast {
       position: fixed;
       bottom: 24px;
@@ -198,12 +224,103 @@
     .toast.show { opacity: 1; }
     .toast.success { background: #16a34a; }
     .toast.error { background: #dc2626; }
-    
+
     .footer {
       text-align: center;
       font-size: 11px;
       color: #94a3b8;
       margin-top: 16px;
+    }
+
+    /* ===== ZIP 모드 스타일 ===== */
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .zip-drop-zone {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 32px 16px;
+      text-align: center;
+      background: #fafafa;
+      transition: all 0.2s;
+      cursor: pointer;
+      margin-bottom: 12px;
+    }
+    .zip-drop-zone.drag-over {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+    .zip-drop-zone .drop-icon { font-size: 40px; margin-bottom: 8px; opacity: 0.5; }
+    .zip-drop-zone .drop-label { font-size: 14px; color: #64748b; font-weight: 500; }
+    .zip-drop-zone .drop-hint { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+
+    .zip-file-list {
+      list-style: none;
+      margin-bottom: 12px;
+    }
+    .zip-file-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .zip-file-item img {
+      width: 48px;
+      height: 48px;
+      object-fit: cover;
+      border-radius: 6px;
+      flex-shrink: 0;
+    }
+    .zip-file-info {
+      flex: 1;
+      min-width: 0;
+    }
+    .zip-file-name {
+      font-weight: 500;
+      color: #1e293b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .zip-file-size {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+    .zip-file-remove {
+      width: 28px; height: 28px;
+      border: none;
+      background: #fee2e2;
+      color: #dc2626;
+      border-radius: 50%;
+      font-size: 16px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .zip-file-remove:active { background: #fecaca; }
+
+    .zip-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      margin: 12px 0;
+      overflow: hidden;
+      display: none;
+    }
+    .zip-progress-bar.show { display: block; }
+    .zip-progress-fill {
+      height: 100%;
+      background: #2563eb;
+      width: 0%;
+      transition: width 0.2s;
     }
   </style>
 </head>
@@ -212,69 +329,124 @@
     <div class="header">
       <h1>📷 구매영수증 사진 업로드</h1>
     </div>
+
+    <!-- 탭 -->
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="switchTab('inserter')">📋 영수증 삽입기</button>
+      <button class="tab-btn" onclick="switchTab('zip')">📦 사진 ZIP 저장</button>
+    </div>
+
     <div class="content">
-      <p class="info-text">
-        사진 3장을 차례로 선택한 뒤<br>
-        [PC로 보내기] 버튼을 누르세요.
-      </p>
-      
-      <div class="slot" data-slot="1" onclick="if(!this.classList.contains('uploading')) document.getElementById('file1').click()">
-        <div class="slot-icon">📷</div>
-        <div class="slot-label">사진 1 — 좌측 위 칸</div>
-        <div class="slot-hint">탭하여 선택</div>
-      </div>
-      <input type="file" id="file1" accept="image/*">
-      
-      <div class="slot" data-slot="2" onclick="if(!this.classList.contains('uploading')) document.getElementById('file2').click()">
-        <div class="slot-icon">📷</div>
-        <div class="slot-label">사진 2 — 우측 위 칸</div>
-        <div class="slot-hint">탭하여 선택</div>
-      </div>
-      <input type="file" id="file2" accept="image/*">
-      
-      <div class="slot" data-slot="3" onclick="if(!this.classList.contains('uploading')) document.getElementById('file3').click()">
-        <div class="slot-icon">📷</div>
-        <div class="slot-label">사진 3 — 아래 큰 칸</div>
-        <div class="slot-hint">탭하여 선택</div>
-      </div>
-      <input type="file" id="file3" accept="image/*">
-      
-      <button id="submit-btn" class="submit-btn" disabled onclick="submitAll()">
-        사진 3장 선택 후 [PC로 보내기]
-      </button>
-      
-      <div id="result" class="result-box">
-        <div class="success-mark">✅</div>
-        <div class="label">PC에 입력할 코드</div>
-        <div class="code" id="code-display">-------</div>
-        <button class="copy-btn" onclick="copyCode()">복사</button>
-        <div class="hint">
-          이 코드를 PC 프로그램의<br>
-          <b>"📱 폰에서 받기"</b> 화면에 입력하세요.<br>
-          <span style="color:#dc2626;">※ 60분 안에 입력해야 합니다.</span>
+
+      <!-- ===== 탭1: 영수증 삽입기 (기존) ===== -->
+      <div id="tab-inserter" class="tab-content active">
+        <p class="info-text">
+          사진 3장을 차례로 선택한 뒤<br>
+          [PC로 보내기] 버튼을 누르세요.
+        </p>
+
+        <div class="slot" data-slot="1" onclick="if(!this.classList.contains('uploading')) document.getElementById('file1').click()">
+          <div class="slot-icon">📷</div>
+          <div class="slot-label">사진 1 — 좌측 위 칸</div>
+          <div class="slot-hint">탭하여 선택</div>
+        </div>
+        <input type="file" id="file1" accept="image/*">
+
+        <div class="slot" data-slot="2" onclick="if(!this.classList.contains('uploading')) document.getElementById('file2').click()">
+          <div class="slot-icon">📷</div>
+          <div class="slot-label">사진 2 — 우측 위 칸</div>
+          <div class="slot-hint">탭하여 선택</div>
+        </div>
+        <input type="file" id="file2" accept="image/*">
+
+        <div class="slot" data-slot="3" onclick="if(!this.classList.contains('uploading')) document.getElementById('file3').click()">
+          <div class="slot-icon">📷</div>
+          <div class="slot-label">사진 3 — 아래 큰 칸</div>
+          <div class="slot-hint">탭하여 선택</div>
+        </div>
+        <input type="file" id="file3" accept="image/*">
+
+        <button id="submit-btn" class="submit-btn" disabled onclick="submitAll()">
+          사진 3장 선택 후 [PC로 보내기]
+        </button>
+
+        <div id="result" class="result-box">
+          <div class="success-mark">✅</div>
+          <div class="label">PC에 입력할 코드</div>
+          <div class="code" id="code-display">-------</div>
+          <button class="copy-btn" onclick="copyCode()">복사</button>
+          <div class="hint">
+            이 코드를 PC 프로그램의<br>
+            <b>"📱 폰에서 받기"</b> 화면에 입력하세요.<br>
+            <span style="color:#dc2626;">※ 60분 안에 입력해야 합니다.</span>
+          </div>
         </div>
       </div>
+
+      <!-- ===== 탭2: 사진 ZIP 저장 ===== -->
+      <div id="tab-zip" class="tab-content">
+        <p class="info-text">
+          사진을 원하는 만큼 선택하면<br>
+          ZIP 파일로 묶어 바로 다운로드됩니다.
+        </p>
+
+        <div class="zip-drop-zone" id="zip-drop-zone" onclick="document.getElementById('zip-file-input').click()">
+          <div class="drop-icon">📁</div>
+          <div class="drop-label">탭하여 사진 선택</div>
+          <div class="drop-hint">여러 장 동시 선택 가능</div>
+        </div>
+        <input type="file" id="zip-file-input" accept="image/*" multiple>
+
+        <ul class="zip-file-list" id="zip-file-list"></ul>
+
+        <div class="zip-progress-bar" id="zip-progress">
+          <div class="zip-progress-fill" id="zip-progress-fill"></div>
+        </div>
+
+        <button id="zip-add-more-btn" class="submit-btn" style="background:#64748b; display:none; margin-bottom:8px;" onclick="document.getElementById('zip-file-input').click()">
+          ➕ 사진 더 추가
+        </button>
+
+        <button id="zip-download-btn" class="submit-btn" disabled onclick="downloadZip()">
+          사진을 선택하세요
+        </button>
+      </div>
+
     </div>
-    <div class="footer">
+
+    <div class="footer" id="footer-inserter">
       🔒 AES-256-GCM E2E 암호화 후 tmpfiles.org에 60분간 임시 보관됩니다.<br>
       비밀번호(코드 뒷부분)는 폰에서만 생성되며 서버로 전송되지 않습니다.
     </div>
+    <div class="footer" id="footer-zip" style="display:none;">
+      📦 사진이 브라우저에서 ZIP으로 압축됩니다. 서버 전송 없이 폰에 바로 저장됩니다.
+    </div>
   </div>
-  
+
   <div id="toast" class="toast"></div>
-  
+
   <script>
-    // ===== 상태 =====
+    // ===== 탭 전환 =====
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+        btn.classList.toggle('active', (tabName === 'inserter' && i === 0) || (tabName === 'zip' && i === 1));
+      });
+      document.getElementById('tab-inserter').classList.toggle('active', tabName === 'inserter');
+      document.getElementById('tab-zip').classList.toggle('active', tabName === 'zip');
+      document.getElementById('footer-inserter').style.display = tabName === 'inserter' ? '' : 'none';
+      document.getElementById('footer-zip').style.display = tabName === 'zip' ? '' : 'none';
+    }
+
+    // ===== 영수증 삽입기 모드 (기존 코드) =====
     const selectedFiles = { 1: null, 2: null, 3: null };
-    
-    // ===== 파일 선택 이벤트 =====
+
     [1, 2, 3].forEach(num => {
       document.getElementById(`file${num}`).addEventListener('change', e => {
         const file = e.target.files[0];
         if (file) showPreview(num, file);
       });
     });
-    
+
     function showPreview(slotNum, file) {
       selectedFiles[slotNum] = file;
       const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
@@ -290,7 +462,7 @@
       reader.readAsDataURL(file);
       updateSubmitButton();
     }
-    
+
     function updateSubmitButton() {
       const btn = document.getElementById('submit-btn');
       const allSet = selectedFiles[1] && selectedFiles[2] && selectedFiles[3];
@@ -298,20 +470,18 @@
       btn.textContent = allSet ? "📤 PC로 보내기"
         : `사진 ${countSelected()}/3 선택됨 - 모두 선택하세요`;
     }
-    
+
     function countSelected() {
       return [1,2,3].filter(n => selectedFiles[n]).length;
     }
-    
-    // ===== AES-GCM E2E 암호화 =====
-    // PC의 tmpfiles_client.derive_key()와 반드시 동일한 파라미터
+
+    // AES-GCM E2E 암호화
     const PBKDF2_SALT = new TextEncoder().encode('receipt-uploader-v1');
     const PBKDF2_ITERATIONS = 100000;
-    const PASSPHRASE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 0/O/1/I/L 제외
-    const PASSPHRASE_LEN = 8; // 약 40bit 엔트로피
+    const PASSPHRASE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+    const PASSPHRASE_LEN = 8;
 
     function genPassphrase() {
-      // 폰에서만 생성 — 절대 네트워크로 전송 금지
       const arr = new Uint8Array(PASSPHRASE_LEN);
       crypto.getRandomValues(arr);
       return Array.from(arr, b => PASSPHRASE_ALPHABET[b % PASSPHRASE_ALPHABET.length]).join('');
@@ -323,12 +493,7 @@
         'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']
       );
       return crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: PBKDF2_SALT,
-          iterations: PBKDF2_ITERATIONS,
-          hash: 'SHA-256'
-        },
+        { name: 'PBKDF2', salt: PBKDF2_SALT, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
         baseKey,
         { name: 'AES-GCM', length: 256 },
         false,
@@ -337,84 +502,55 @@
     }
 
     async function encryptBlob(blob, key) {
-      // 형식: IV(12) || ciphertext+tag (WebCrypto는 tag를 ciphertext 끝에 부착)
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const plaintext = await blob.arrayBuffer();
-      const ciphertext = await crypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: iv },
-        key,
-        plaintext
-      );
+      const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv: iv }, key, plaintext);
       const out = new Uint8Array(iv.length + ciphertext.byteLength);
       out.set(iv, 0);
       out.set(new Uint8Array(ciphertext), iv.length);
       return new Blob([out], { type: 'application/octet-stream' });
     }
 
-    // ===== 업로드 =====
     async function submitAll() {
       const btn = document.getElementById('submit-btn');
       btn.disabled = true;
       btn.textContent = "업로드 중...";
 
       try {
-        // WebCrypto 지원 확인
         if (!window.crypto || !window.crypto.subtle) {
           throw new Error("이 브라우저는 암호화를 지원하지 않습니다 (HTTPS 필요)");
         }
 
-        // 0단계: passphrase 생성 + AES 키 유도 (1회만)
         btn.textContent = "암호화 키 생성 중...";
         const passphrase = genPassphrase();
         const aesKey = await deriveKey(passphrase);
 
-        // 1단계: 사진 3장 각각 암호화 후 tmpfiles에 올림
         const urls = [];
         for (let i = 1; i <= 3; i++) {
           markUploading(i);
-
-          // 암호화 (보통 ~수십~수백 ms)
           const encryptedBlob = await encryptBlob(selectedFiles[i], aesKey);
           const encryptedFile = new File(
-            [encryptedBlob],
-            selectedFiles[i].name + '.enc',
+            [encryptedBlob], selectedFiles[i].name + '.enc',
             { type: 'application/octet-stream' }
           );
-
-          const url = await uploadFile(encryptedFile, pct => {
-            updateSlotProgress(i, pct);
-          });
-          urls.push({
-            slot: i,
-            url: url,
-            originalName: selectedFiles[i].name,
-          });
+          const url = await uploadFile(encryptedFile, pct => { updateSlotProgress(i, pct); });
+          urls.push({ slot: i, url: url, originalName: selectedFiles[i].name });
           markSuccess(i);
         }
 
-        // 2단계: 매니페스트(JSON)도 같은 키로 암호화 후 업로드
         const manifest = {
           createdAt: new Date().toISOString(),
           version: 'aes-gcm-1',
           photos: urls,
         };
-        const manifestPlain = new Blob(
-          [JSON.stringify(manifest)],
-          { type: 'application/json' }
-        );
+        const manifestPlain = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
         const encryptedManifest = await encryptBlob(manifestPlain, aesKey);
-        const manifestFile = new File(
-          [encryptedManifest], 'manifest.json',
-          { type: 'application/octet-stream' }
-        );
+        const manifestFile = new File([encryptedManifest], 'manifest.json', { type: 'application/octet-stream' });
         const manifestUrl = await uploadFile(manifestFile);
 
-        // 3단계: URL에서 tmpfiles 코드 추출
         const tmpCode = extractCode(manifestUrl);
         if (!tmpCode) throw new Error("코드 추출 실패");
 
-        // 4단계: 사용자 표시 코드 = "{tmp_code}-{passphrase}"
-        // passphrase는 절대 네트워크로 보내지 않음 — 화면에만 표시
         const displayCode = `${tmpCode}-${passphrase}`;
         showResult(displayCode);
       } catch (e) {
@@ -424,56 +560,41 @@
         btn.textContent = "다시 시도";
       }
     }
-    
+
     function uploadFile(file, onProgress) {
       return new Promise((resolve, reject) => {
         const formData = new FormData();
         formData.append('file', file);
-        
         const xhr = new XMLHttpRequest();
         xhr.open('POST', 'https://tmpfiles.org/api/v1/upload');
-        
         if (onProgress) {
           xhr.upload.addEventListener('progress', e => {
-            if (e.lengthComputable) {
-              onProgress((e.loaded / e.total) * 100);
-            }
+            if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
           });
         }
-        
         xhr.onload = () => {
           if (xhr.status === 200) {
             try {
               const data = JSON.parse(xhr.responseText);
-              if (data.status === 'success') {
-                resolve(data.data.url);
-              } else {
-                reject(new Error('서버 응답 오류'));
-              }
-            } catch (e) {
-              reject(e);
-            }
-          } else {
-            reject(new Error(`HTTP ${xhr.status}`));
-          }
+              if (data.status === 'success') resolve(data.data.url);
+              else reject(new Error('서버 응답 오류'));
+            } catch (e) { reject(e); }
+          } else { reject(new Error(`HTTP ${xhr.status}`)); }
         };
         xhr.onerror = () => reject(new Error('네트워크 오류'));
         xhr.send(formData);
       });
     }
-    
+
     function extractCode(url) {
-      // http://tmpfiles.org/35541093/manifest.json → 35541093
       const m = url.match(/tmpfiles\.org\/(\d+)\//);
       return m ? m[1] : null;
     }
-    
-    // ===== UI 업데이트 =====
+
     function markUploading(slotNum) {
       const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
       slot.classList.remove('success', 'error');
       slot.classList.add('uploading');
-      // 진행 바 추가
       if (!slot.querySelector('.progress')) {
         const bar = document.createElement('div');
         bar.className = 'progress';
@@ -481,12 +602,12 @@
         slot.appendChild(bar);
       }
     }
-    
+
     function updateSlotProgress(slotNum, pct) {
       const bar = document.getElementById(`bar-${slotNum}`);
       if (bar) bar.style.width = pct + '%';
     }
-    
+
     function markSuccess(slotNum) {
       const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
       slot.classList.remove('uploading', 'error');
@@ -500,7 +621,7 @@
         slot.appendChild(icon);
       }
     }
-    
+
     function showResult(code) {
       document.getElementById('code-display').textContent = code;
       document.getElementById('result').classList.add('show');
@@ -508,10 +629,9 @@
       document.getElementById('result').scrollIntoView({behavior: 'smooth'});
       showToast('업로드 완료! 코드를 PC에 입력하세요.', 'success');
     }
-    
+
     function copyCode() {
       const code = document.getElementById('code-display').textContent;
-      // 모바일 호환 복사
       const tmp = document.createElement('input');
       tmp.value = code;
       document.body.appendChild(tmp);
@@ -526,16 +646,173 @@
       }
       document.body.removeChild(tmp);
     }
-    
+
+    // ===== ZIP 모드 =====
+    const zipFiles = [];
+
+    document.getElementById('zip-file-input').addEventListener('change', e => {
+      const files = Array.from(e.target.files);
+      if (files.length === 0) return;
+      files.forEach(f => addZipFile(f));
+      e.target.value = ''; // 같은 파일 다시 선택 가능
+      updateZipUI();
+    });
+
+    // 드래그앤드롭
+    const dropZone = document.getElementById('zip-drop-zone');
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      files.forEach(f => addZipFile(f));
+      updateZipUI();
+    });
+
+    function addZipFile(file) {
+      // 중복 방지 (이름+크기 기준)
+      const isDup = zipFiles.some(f => f.name === file.name && f.size === file.size);
+      if (isDup) return;
+      zipFiles.push(file);
+    }
+
+    function removeZipFile(idx) {
+      zipFiles.splice(idx, 1);
+      updateZipUI();
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function updateZipUI() {
+      const list = document.getElementById('zip-file-list');
+      const btn = document.getElementById('zip-download-btn');
+      const addBtn = document.getElementById('zip-add-more-btn');
+      const dropZone = document.getElementById('zip-drop-zone');
+
+      list.innerHTML = '';
+      zipFiles.forEach((file, idx) => {
+        const li = document.createElement('li');
+        li.className = 'zip-file-item';
+
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.onload = () => URL.revokeObjectURL(img.src);
+
+        const info = document.createElement('div');
+        info.className = 'zip-file-info';
+        info.innerHTML = `<div class="zip-file-name">${file.name}</div><div class="zip-file-size">${formatSize(file.size)}</div>`;
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'zip-file-remove';
+        removeBtn.textContent = '✕';
+        removeBtn.onclick = () => removeZipFile(idx);
+
+        li.appendChild(img);
+        li.appendChild(info);
+        li.appendChild(removeBtn);
+        list.appendChild(li);
+      });
+
+      const count = zipFiles.length;
+      const totalSize = zipFiles.reduce((s, f) => s + f.size, 0);
+
+      if (count > 0) {
+        dropZone.style.display = 'none';
+        addBtn.style.display = '';
+        btn.disabled = false;
+        btn.textContent = `📦 ${count}장 ZIP 다운로드 (${formatSize(totalSize)})`;
+      } else {
+        dropZone.style.display = '';
+        addBtn.style.display = 'none';
+        btn.disabled = true;
+        btn.textContent = '사진을 선택하세요';
+      }
+    }
+
+    async function downloadZip() {
+      const btn = document.getElementById('zip-download-btn');
+      const progressBar = document.getElementById('zip-progress');
+      const progressFill = document.getElementById('zip-progress-fill');
+
+      btn.disabled = true;
+      btn.textContent = '압축 중...';
+      progressBar.classList.add('show');
+      progressFill.style.width = '0%';
+
+      try {
+        const zip = new JSZip();
+        const total = zipFiles.length;
+
+        for (let i = 0; i < total; i++) {
+          const file = zipFiles[i];
+          const arrayBuf = await file.arrayBuffer();
+          // 파일명 중복 방지: 같은 이름이면 번호 붙이기
+          let name = file.name;
+          if (zip.file(name)) {
+            const dot = name.lastIndexOf('.');
+            const base = dot > 0 ? name.substring(0, dot) : name;
+            const ext = dot > 0 ? name.substring(dot) : '';
+            name = `${base}_${i + 1}${ext}`;
+          }
+          zip.file(name, arrayBuf);
+          progressFill.style.width = ((i + 1) / total * 70) + '%'; // 70%까지 파일 추가
+        }
+
+        btn.textContent = 'ZIP 생성 중...';
+        const blob = await zip.generateAsync(
+          { type: 'blob', compression: 'STORE' }, // 이미지는 이미 압축됨 → STORE가 빠름
+          metadata => {
+            progressFill.style.width = (70 + metadata.percent * 0.3) + '%';
+          }
+        );
+
+        progressFill.style.width = '100%';
+
+        // 다운로드 트리거
+        const now = new Date();
+        const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+        const timeStr = `${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
+        const filename = `사진_${dateStr}_${timeStr}.zip`;
+
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        showToast(`${filename} 다운로드 완료!`, 'success');
+        btn.textContent = `✅ ${filename} 저장됨`;
+
+        setTimeout(() => {
+          progressBar.classList.remove('show');
+          btn.disabled = false;
+          updateZipUI();
+        }, 2000);
+      } catch (e) {
+        console.error(e);
+        showToast(`ZIP 생성 실패: ${e.message}`, 'error');
+        btn.disabled = false;
+        progressBar.classList.remove('show');
+        updateZipUI();
+      }
+    }
+
+    // ===== 공통: 토스트 =====
     let toastTimer = null;
     function showToast(msg, type='') {
       const t = document.getElementById('toast');
       t.textContent = msg;
       t.className = 'toast show ' + type;
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(() => {
-        t.className = 'toast ' + type;
-      }, 2500);
+      toastTimer = setTimeout(() => { t.className = 'toast ' + type; }, 2500);
     }
   </script>
 </body>
