@@ -6,8 +6,10 @@ manifest의 URL에서 추출한 코드(예: "35541093")만 PC에 입력하면
 이 코드로 매니페스트와 사진들을 모두 다운로드한다.
 
 tmpfiles.org URL 구조:
-    http://tmpfiles.org/35541093/test.json    ← 폰이 받은 URL
-    http://tmpfiles.org/dl/35541093/test.json ← 직접 다운로드 URL
+    https://tmpfiles.org/35541093/test.json    ← 폰이 받은 URL
+    https://tmpfiles.org/dl/35541093/test.json ← 직접 다운로드 URL
+
+🔒 보안: HTTP → HTTPS 강제 업그레이드 (영수증 사진 MITM 방지)
 """
 
 from __future__ import annotations
@@ -20,17 +22,25 @@ from pathlib import Path
 from typing import Callable
 
 
+def _force_https(url: str) -> str:
+    """HTTP URL을 HTTPS로 업그레이드 (영수증 사진의 평문 노출 방지)."""
+    if url.startswith('http://'):
+        return 'https://' + url[len('http://'):]
+    return url
+
+
 def code_to_manifest_url(code: str, filename: str = "manifest.json") -> str:
-    """코드 → 매니페스트 다운로드 URL."""
-    return f"http://tmpfiles.org/dl/{code.strip()}/{filename}"
+    """코드 → 매니페스트 다운로드 URL (HTTPS)."""
+    return f"https://tmpfiles.org/dl/{code.strip()}/{filename}"
 
 
 def normalize_url(url: str) -> str:
-    """tmpfiles.org URL을 dl 형식으로 변환.
-    
+    """tmpfiles.org URL을 dl 형식 + HTTPS로 변환.
+
     http://tmpfiles.org/35541093/photo.jpg
-    → http://tmpfiles.org/dl/35541093/photo.jpg
+    → https://tmpfiles.org/dl/35541093/photo.jpg
     """
+    url = _force_https(url)
     # 이미 /dl/ 들어있으면 그대로
     if '/dl/' in url:
         return url

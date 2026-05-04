@@ -6,6 +6,7 @@ GUI에서 호출해서 쓸 수 있도록 비즈니스 로직만 담음.
 
 from __future__ import annotations
 import shutil
+import tempfile
 import zipfile
 import hashlib
 import base64
@@ -133,12 +134,12 @@ class HwpxImageInserter:
     def __init__(self, template: Path, output: Path):
         self.template = Path(template)
         self.output = Path(output)
-        self.work = self.output.parent / f"_work_{self.output.stem}"
-    
+        # work 폴더를 시스템 임시 디렉토리에 생성 → USB/네트워크/읽기전용
+        # 출력 폴더 선택 시 권한 문제로 크래시 나는 버그 방지
+        self.work: Path | None = None
+
     def __enter__(self):
-        if self.work.exists():
-            shutil.rmtree(self.work)
-        self.work.mkdir(parents=True)
+        self.work = Path(tempfile.mkdtemp(prefix=f"hwpx_work_{self.output.stem}_"))
         with zipfile.ZipFile(self.template, 'r') as zf:
             zf.extractall(self.work)
         
@@ -148,18 +149,24 @@ class HwpxImageInserter:
         self.bindata_dir.mkdir(exist_ok=True)
         return self
     
-    def __exit__(self, *_):
-        if self.output.exists():
-            self.output.unlink()
-        with zipfile.ZipFile(self.output, 'w', zipfile.ZIP_DEFLATED) as zf:
-            mt = self.work / 'mimetype'
-            if mt.exists():
-                zf.write(mt, 'mimetype', zipfile.ZIP_STORED)
-            for p in sorted(self.work.rglob('*')):
-                if p.is_file() and p.name != 'mimetype':
-                    arc = p.relative_to(self.work).as_posix()
-                    zf.write(p, arc)
-        shutil.rmtree(self.work)
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # 예외 발생 시에도 work 폴더는 반드시 정리 (디스크 누수 방지)
+        try:
+            if exc_type is None and self.work is not None:
+                # 정상 종료: ZIP 저장
+                if self.output.exists():
+                    self.output.unlink()
+                with zipfile.ZipFile(self.output, 'w', zipfile.ZIP_DEFLATED) as zf:
+                    mt = self.work / 'mimetype'
+                    if mt.exists():
+                        zf.write(mt, 'mimetype', zipfile.ZIP_STORED)
+                    for p in sorted(self.work.rglob('*')):
+                        if p.is_file() and p.name != 'mimetype':
+                            arc = p.relative_to(self.work).as_posix()
+                            zf.write(p, arc)
+        finally:
+            if self.work is not None and self.work.exists():
+                shutil.rmtree(self.work, ignore_errors=True)
     
     def collect_target_cells(self):
         tree = ET.parse(self.section_path)

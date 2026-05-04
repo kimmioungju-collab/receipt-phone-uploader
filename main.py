@@ -218,7 +218,9 @@ class HwpWorker(QThread):
             )
             self.finished_ok.emit(result)
         except Exception as e:
-            self.failed.emit(f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
+            # 사용자에겐 간결한 메시지만, 풀 traceback은 stderr로 (개발자 디버깅용)
+            traceback.print_exc()
+            self.failed.emit(f"{type(e).__name__}: {e}")
 
 
 class ZipWorker(QThread):
@@ -238,7 +240,9 @@ class ZipWorker(QThread):
             )
             self.finished_ok.emit(result)
         except Exception as e:
-            self.failed.emit(f"{type(e).__name__}: {e}\n\n{traceback.format_exc()}")
+            # 사용자에겐 간결한 메시지만, 풀 traceback은 stderr로 (개발자 디버깅용)
+            traceback.print_exc()
+            self.failed.emit(f"{type(e).__name__}: {e}")
 
 
 # ─────────────────────────────────────────────────────────────────
