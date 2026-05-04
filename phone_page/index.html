@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#2563eb">
+  <title>구매영수증 사진 업로드</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                   "Malgun Gothic", "Noto Sans KR", sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      min-height: 100vh;
+      padding: 16px;
+      font-size: 16px;
+    }
+    .container { max-width: 480px; margin: 0 auto; }
+    .header {
+      background: #2563eb;
+      color: white;
+      padding: 18px 16px;
+      border-radius: 12px 12px 0 0;
+      text-align: center;
+    }
+    .header h1 { font-size: 17px; font-weight: 600; }
+    .content {
+      background: white;
+      padding: 16px;
+      border-radius: 0 0 12px 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .info-text {
+      font-size: 13px;
+      color: #64748b;
+      text-align: center;
+      margin: 4px 0 14px;
+      line-height: 1.5;
+    }
+    .slot {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 24px 12px;
+      margin-bottom: 12px;
+      text-align: center;
+      background: #fafafa;
+      transition: all 0.2s;
+      position: relative;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+    .slot.filled {
+      border: 1px solid #94a3b8;
+      background: white;
+      padding: 8px;
+      cursor: default;
+    }
+    .slot.uploading { border-color: #2563eb; background: #eff6ff; }
+    .slot.success {
+      border: 1px solid #16a34a;
+      background: #f0fdf4;
+    }
+    .slot.error { border-color: #dc2626; background: #fef2f2; }
+    .slot-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
+    .slot-label { font-size: 13px; color: #64748b; margin-bottom: 4px; font-weight: 500; }
+    .slot-hint { font-size: 11px; color: #94a3b8; }
+    .slot img {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: 6px;
+      object-fit: contain;
+      margin-bottom: 6px;
+    }
+    .slot .filename {
+      font-size: 11px;
+      color: #64748b;
+      word-break: break-all;
+      max-width: 100%;
+      padding: 0 4px;
+    }
+    .slot .progress {
+      width: 100%;
+      height: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .slot .progress-bar {
+      height: 100%;
+      background: #2563eb;
+      width: 0%;
+      transition: width 0.3s;
+    }
+    .slot .status-icon {
+      position: absolute;
+      top: 8px; right: 8px;
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      color: white;
+      font-weight: 600;
+    }
+    .slot.success .status-icon { background: #16a34a; }
+    .slot.error .status-icon { background: #dc2626; }
+    
+    input[type=file] { display: none; }
+    
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      margin-top: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .submit-btn:active { background: #1d4ed8; }
+    .submit-btn:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+    }
+    
+    .result-box {
+      display: none;
+      background: #f0fdf4;
+      border: 2px solid #16a34a;
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 16px;
+      text-align: center;
+    }
+    .result-box.show { display: block; }
+    .result-box .success-mark {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .result-box .label {
+      font-size: 13px;
+      color: #166534;
+      margin-bottom: 6px;
+    }
+    .result-box .code {
+      font-size: 38px;
+      font-weight: bold;
+      color: #166534;
+      letter-spacing: 4px;
+      font-family: 'Courier New', monospace;
+      padding: 8px 0;
+      user-select: all;
+      -webkit-user-select: all;
+    }
+    .result-box .hint {
+      font-size: 12px;
+      color: #15803d;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+    .copy-btn {
+      background: white;
+      color: #166534;
+      border: 1px solid #86efac;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+    .copy-btn:active { background: #ecfdf5; }
+    
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1e293b;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #16a34a; }
+    .toast.error { background: #dc2626; }
+    
+    .footer {
+      text-align: center;
+      font-size: 11px;
+      color: #94a3b8;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📷 구매영수증 사진 업로드</h1>
+    </div>
+    <div class="content">
+      <p class="info-text">
+        사진 3장을 차례로 선택한 뒤<br>
+        [PC로 보내기] 버튼을 누르세요.
+      </p>
+      
+      <div class="slot" data-slot="1" onclick="if(!this.classList.contains('uploading')) document.getElementById('file1').click()">
+        <div class="slot-icon">📷</div>
+        <div class="slot-label">사진 1 — 좌측 위 칸</div>
+        <div class="slot-hint">탭하여 선택</div>
+      </div>
+      <input type="file" id="file1" accept="image/*">
+      
+      <div class="slot" data-slot="2" onclick="if(!this.classList.contains('uploading')) document.getElementById('file2').click()">
+        <div class="slot-icon">📷</div>
+        <div class="slot-label">사진 2 — 우측 위 칸</div>
+        <div class="slot-hint">탭하여 선택</div>
+      </div>
+      <input type="file" id="file2" accept="image/*">
+      
+      <div class="slot" data-slot="3" onclick="if(!this.classList.contains('uploading')) document.getElementById('file3').click()">
+        <div class="slot-icon">📷</div>
+        <div class="slot-label">사진 3 — 아래 큰 칸</div>
+        <div class="slot-hint">탭하여 선택</div>
+      </div>
+      <input type="file" id="file3" accept="image/*">
+      
+      <button id="submit-btn" class="submit-btn" disabled onclick="submitAll()">
+        사진 3장 선택 후 [PC로 보내기]
+      </button>
+      
+      <div id="result" class="result-box">
+        <div class="success-mark">✅</div>
+        <div class="label">PC에 입력할 코드</div>
+        <div class="code" id="code-display">-------</div>
+        <button class="copy-btn" onclick="copyCode()">복사</button>
+        <div class="hint">
+          이 코드를 PC 프로그램의<br>
+          <b>"📱 폰에서 받기"</b> 화면에 입력하세요.<br>
+          <span style="color:#dc2626;">※ 60분 안에 입력해야 합니다.</span>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      tmpfiles.org를 통해 60분간 임시 보관됩니다.
+    </div>
+  </div>
+  
+  <div id="toast" class="toast"></div>
+  
+  <script>
+    // ===== 상태 =====
+    const selectedFiles = { 1: null, 2: null, 3: null };
+    
+    // ===== 파일 선택 이벤트 =====
+    [1, 2, 3].forEach(num => {
+      document.getElementById(`file${num}`).addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (file) showPreview(num, file);
+      });
+    });
+    
+    function showPreview(slotNum, file) {
+      selectedFiles[slotNum] = file;
+      const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
+      const reader = new FileReader();
+      reader.onload = e => {
+        slot.classList.remove('error', 'uploading', 'success');
+        slot.classList.add('filled');
+        slot.innerHTML = `
+          <img src="${e.target.result}" alt="">
+          <div class="filename">${file.name}</div>
+        `;
+      };
+      reader.readAsDataURL(file);
+      updateSubmitButton();
+    }
+    
+    function updateSubmitButton() {
+      const btn = document.getElementById('submit-btn');
+      const allSet = selectedFiles[1] && selectedFiles[2] && selectedFiles[3];
+      btn.disabled = !allSet;
+      btn.textContent = allSet ? "📤 PC로 보내기"
+        : `사진 ${countSelected()}/3 선택됨 - 모두 선택하세요`;
+    }
+    
+    function countSelected() {
+      return [1,2,3].filter(n => selectedFiles[n]).length;
+    }
+    
+    // ===== 업로드 =====
+    async function submitAll() {
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = "업로드 중...";
+      
+      try {
+        // 1단계: 사진 3장 각각 tmpfiles에 올림
+        const urls = [];
+        for (let i = 1; i <= 3; i++) {
+          markUploading(i);
+          const url = await uploadFile(selectedFiles[i], pct => {
+            updateSlotProgress(i, pct);
+          });
+          urls.push({
+            slot: i,
+            url: url,
+            originalName: selectedFiles[i].name,
+          });
+          markSuccess(i);
+        }
+        
+        // 2단계: URL 매니페스트를 만들어서 다시 업로드
+        const manifest = {
+          createdAt: new Date().toISOString(),
+          photos: urls,
+        };
+        const manifestBlob = new Blob(
+          [JSON.stringify(manifest)],
+          { type: 'application/json' }
+        );
+        const manifestFile = new File(
+          [manifestBlob], 'manifest.json',
+          { type: 'application/json' }
+        );
+        const manifestUrl = await uploadFile(manifestFile);
+        
+        // 3단계: URL에서 코드 추출
+        // tmpfiles.org/35541093/test.json → 35541093
+        const code = extractCode(manifestUrl);
+        if (!code) throw new Error("코드 추출 실패");
+        
+        showResult(code);
+      } catch (e) {
+        console.error(e);
+        showToast(`업로드 실패: ${e.message}`, 'error');
+        btn.disabled = false;
+        btn.textContent = "다시 시도";
+      }
+    }
+    
+    function uploadFile(file, onProgress) {
+      return new Promise((resolve, reject) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', 'https://tmpfiles.org/api/v1/upload');
+        
+        if (onProgress) {
+          xhr.upload.addEventListener('progress', e => {
+            if (e.lengthComputable) {
+              onProgress((e.loaded / e.total) * 100);
+            }
+          });
+        }
+        
+        xhr.onload = () => {
+          if (xhr.status === 200) {
+            try {
+              const data = JSON.parse(xhr.responseText);
+              if (data.status === 'success') {
+                resolve(data.data.url);
+              } else {
+                reject(new Error('서버 응답 오류'));
+              }
+            } catch (e) {
+              reject(e);
+            }
+          } else {
+            reject(new Error(`HTTP ${xhr.status}`));
+          }
+        };
+        xhr.onerror = () => reject(new Error('네트워크 오류'));
+        xhr.send(formData);
+      });
+    }
+    
+    function extractCode(url) {
+      // http://tmpfiles.org/35541093/manifest.json → 35541093
+      const m = url.match(/tmpfiles\.org\/(\d+)\//);
+      return m ? m[1] : null;
+    }
+    
+    // ===== UI 업데이트 =====
+    function markUploading(slotNum) {
+      const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
+      slot.classList.remove('success', 'error');
+      slot.classList.add('uploading');
+      // 진행 바 추가
+      if (!slot.querySelector('.progress')) {
+        const bar = document.createElement('div');
+        bar.className = 'progress';
+        bar.innerHTML = `<div class="progress-bar" id="bar-${slotNum}"></div>`;
+        slot.appendChild(bar);
+      }
+    }
+    
+    function updateSlotProgress(slotNum, pct) {
+      const bar = document.getElementById(`bar-${slotNum}`);
+      if (bar) bar.style.width = pct + '%';
+    }
+    
+    function markSuccess(slotNum) {
+      const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
+      slot.classList.remove('uploading', 'error');
+      slot.classList.add('success');
+      const bar = slot.querySelector('.progress');
+      if (bar) bar.remove();
+      if (!slot.querySelector('.status-icon')) {
+        const icon = document.createElement('div');
+        icon.className = 'status-icon';
+        icon.textContent = '✓';
+        slot.appendChild(icon);
+      }
+    }
+    
+    function showResult(code) {
+      document.getElementById('code-display').textContent = code;
+      document.getElementById('result').classList.add('show');
+      document.getElementById('submit-btn').style.display = 'none';
+      document.getElementById('result').scrollIntoView({behavior: 'smooth'});
+      showToast('업로드 완료! 코드를 PC에 입력하세요.', 'success');
+    }
+    
+    function copyCode() {
+      const code = document.getElementById('code-display').textContent;
+      // 모바일 호환 복사
+      const tmp = document.createElement('input');
+      tmp.value = code;
+      document.body.appendChild(tmp);
+      tmp.select();
+      tmp.setSelectionRange(0, 99999);
+      try {
+        document.execCommand('copy');
+        if (navigator.clipboard) navigator.clipboard.writeText(code);
+        showToast('코드가 복사되었습니다', 'success');
+      } catch (e) {
+        showToast('복사 실패 - 직접 입력하세요', 'error');
+      }
+      document.body.removeChild(tmp);
+    }
+    
+    let toastTimer = null;
+    function showToast(msg, type='') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + type;
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        t.className = 'toast ' + type;
+      }, 2500);
+    }
+  </script>
+</body>
+</html>
