@@ -25,7 +25,6 @@
       text-align: center;
     }
     .header h1 { font-size: 17px; font-weight: 600; }
-    .header .author { font-size: 11px; opacity: 0.85; margin-top: 4px; }
     .content {
       background: white;
       padding: 16px;
@@ -39,133 +38,79 @@
       margin: 4px 0 14px;
       line-height: 1.5;
     }
-    .counter {
+    .slot {
+      border: 2px dashed #cbd5e1;
+      border-radius: 12px;
+      padding: 24px 12px;
+      margin-bottom: 12px;
       text-align: center;
-      font-size: 13px;
-      color: #475569;
-      font-weight: 500;
-      margin-bottom: 12px;
-      padding: 8px;
-      background: #f1f5f9;
-      border-radius: 6px;
-    }
-    .counter b { color: #2563eb; }
-    
-    .multi-btn {
-      width: 100%;
-      padding: 14px;
-      background: #2563eb;
-      color: white;
-      border: none;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      cursor: pointer;
-      transition: background 0.2s;
-    }
-    .multi-btn:active { background: #1d4ed8; }
-    
-    .add-btn {
-      width: 100%;
-      padding: 12px;
-      background: #f0fdf4;
-      color: #166534;
-      border: 1.5px solid #86efac;
-      border-radius: 8px;
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 12px;
-      cursor: pointer;
-    }
-    .add-btn:active { background: #d1fae5; }
-    .add-btn:disabled {
-      background: #f1f5f9;
-      color: #94a3b8;
-      border-color: #e2e8f0;
-      cursor: not-allowed;
-    }
-    
-    .photo-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .photo-card {
-      position: relative;
-      aspect-ratio: 1;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      background: white;
-      overflow: hidden;
+      background: #fafafa;
       transition: all 0.2s;
-    }
-    .photo-card.uploading { border-color: #2563eb; }
-    .photo-card.success { border: 2px solid #16a34a; }
-    .photo-card.error { border: 2px solid #dc2626; }
-    
-    .photo-card img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-    .photo-card .num {
-      position: absolute;
-      top: 4px;
-      left: 4px;
-      width: 22px;
-      height: 22px;
-      background: rgba(0,0,0,0.6);
-      color: white;
-      font-size: 11px;
-      font-weight: 600;
-      border-radius: 50%;
+      position: relative;
+      min-height: 140px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-    }
-    .photo-card .remove {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 22px;
-      height: 22px;
-      background: rgba(220,38,38,0.85);
-      color: white;
-      font-size: 12px;
-      border: none;
-      border-radius: 50%;
       cursor: pointer;
     }
-    .photo-card .progress {
-      position: absolute;
-      left: 0; right: 0; bottom: 0;
-      height: 3px;
-      background: rgba(0,0,0,0.1);
+    .slot.filled {
+      border: 1px solid #94a3b8;
+      background: white;
+      padding: 8px;
+      cursor: default;
     }
-    .photo-card .progress-bar {
+    .slot.uploading { border-color: #2563eb; background: #eff6ff; }
+    .slot.success {
+      border: 1px solid #16a34a;
+      background: #f0fdf4;
+    }
+    .slot.error { border-color: #dc2626; background: #fef2f2; }
+    .slot-icon { font-size: 32px; margin-bottom: 8px; opacity: 0.5; }
+    .slot-label { font-size: 13px; color: #64748b; margin-bottom: 4px; font-weight: 500; }
+    .slot-hint { font-size: 11px; color: #94a3b8; }
+    .slot img {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: 6px;
+      object-fit: contain;
+      margin-bottom: 6px;
+    }
+    .slot .filename {
+      font-size: 11px;
+      color: #64748b;
+      word-break: break-all;
+      max-width: 100%;
+      padding: 0 4px;
+    }
+    .slot .progress {
+      width: 100%;
+      height: 4px;
+      background: #e2e8f0;
+      border-radius: 2px;
+      margin-top: 8px;
+      overflow: hidden;
+    }
+    .slot .progress-bar {
       height: 100%;
       background: #2563eb;
       width: 0%;
       transition: width 0.3s;
     }
-    .photo-card .status {
+    .slot .status-icon {
       position: absolute;
-      bottom: 4px;
-      right: 4px;
-      width: 22px;
-      height: 22px;
+      top: 8px; right: 8px;
+      width: 22px; height: 22px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
+      font-size: 13px;
       color: white;
-      font-size: 12px;
       font-weight: 600;
     }
-    .photo-card.success .status { background: #16a34a; }
-    .photo-card.error .status { background: #dc2626; }
+    .slot.success .status-icon { background: #16a34a; }
+    .slot.error .status-icon { background: #dc2626; }
     
     input[type=file] { display: none; }
     
@@ -178,11 +123,15 @@
       border-radius: 8px;
       font-size: 16px;
       font-weight: 600;
+      margin-top: 8px;
       cursor: pointer;
       transition: background 0.2s;
     }
     .submit-btn:active { background: #1d4ed8; }
-    .submit-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+    .submit-btn:disabled {
+      background: #cbd5e1;
+      cursor: not-allowed;
+    }
     
     .result-box {
       display: none;
@@ -194,8 +143,15 @@
       text-align: center;
     }
     .result-box.show { display: block; }
-    .result-box .success-mark { font-size: 32px; margin-bottom: 8px; }
-    .result-box .label { font-size: 13px; color: #166534; margin-bottom: 6px; }
+    .result-box .success-mark {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+    .result-box .label {
+      font-size: 13px;
+      color: #166534;
+      margin-bottom: 6px;
+    }
     .result-box .code {
       font-size: 38px;
       font-weight: bold;
@@ -249,49 +205,42 @@
       color: #94a3b8;
       margin-top: 16px;
     }
-    
-    .empty-state {
-      text-align: center;
-      padding: 32px 16px;
-      color: #94a3b8;
-      font-size: 13px;
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>📷 사진 업로드</h1>
-      <div class="author">제작 · 곽명주, 강상현, 이규태, 노규형, 김재우</div>
+      <h1>📷 구매영수증 사진 업로드</h1>
     </div>
     <div class="content">
       <p class="info-text">
-        사진을 1~20장까지 업로드할 수 있습니다.<br>
-        업로드 시 자동으로 최적 크기로 압축됩니다.
+        사진 3장을 차례로 선택한 뒤<br>
+        [PC로 보내기] 버튼을 누르세요.
       </p>
       
-      <button class="multi-btn" onclick="document.getElementById('multi-file').click()">
-        📂 사진 여러 장 선택
-      </button>
-      <input type="file" id="multi-file" accept="image/*" multiple>
-      
-      <button id="add-btn" class="add-btn" onclick="document.getElementById('single-file').click()">
-        ➕ 한 장 추가
-      </button>
-      <input type="file" id="single-file" accept="image/*">
-      
-      <div class="counter">
-        선택된 사진: <b id="counter">0</b> / 20장
+      <div class="slot" data-slot="1" onclick="if(!this.classList.contains('uploading')) document.getElementById('file1').click()">
+        <div class="slot-icon">📷</div>
+        <div class="slot-label">사진 1 — 좌측 위 칸</div>
+        <div class="slot-hint">탭하여 선택</div>
       </div>
+      <input type="file" id="file1" accept="image/*">
       
-      <div id="photo-grid" class="photo-grid">
-        <div class="empty-state" id="empty-state" style="grid-column: 1 / -1;">
-          아직 선택된 사진이 없습니다
-        </div>
+      <div class="slot" data-slot="2" onclick="if(!this.classList.contains('uploading')) document.getElementById('file2').click()">
+        <div class="slot-icon">📷</div>
+        <div class="slot-label">사진 2 — 우측 위 칸</div>
+        <div class="slot-hint">탭하여 선택</div>
       </div>
+      <input type="file" id="file2" accept="image/*">
+      
+      <div class="slot" data-slot="3" onclick="if(!this.classList.contains('uploading')) document.getElementById('file3').click()">
+        <div class="slot-icon">📷</div>
+        <div class="slot-label">사진 3 — 아래 큰 칸</div>
+        <div class="slot-hint">탭하여 선택</div>
+      </div>
+      <input type="file" id="file3" accept="image/*">
       
       <button id="submit-btn" class="submit-btn" disabled onclick="submitAll()">
-        사진을 1장 이상 선택하세요
+        사진 3장 선택 후 [PC로 보내기]
       </button>
       
       <div id="result" class="result-box">
@@ -307,235 +256,167 @@
       </div>
     </div>
     <div class="footer">
-      tmpfiles.org를 통해 60분간 임시 보관됩니다.
+      🔒 AES-256-GCM E2E 암호화 후 tmpfiles.org에 60분간 임시 보관됩니다.<br>
+      비밀번호(코드 뒷부분)는 폰에서만 생성되며 서버로 전송되지 않습니다.
     </div>
   </div>
   
   <div id="toast" class="toast"></div>
   
   <script>
-    const MAX_PHOTOS = 20;
-    const photos = [];
-    let nextId = 1;
+    // ===== 상태 =====
+    const selectedFiles = { 1: null, 2: null, 3: null };
     
-    document.getElementById('multi-file').addEventListener('change', e => {
-      addFiles(Array.from(e.target.files));
-      e.target.value = '';
-    });
-    
-    document.getElementById('single-file').addEventListener('change', e => {
-      addFiles(Array.from(e.target.files));
-      e.target.value = '';
-    });
-    
-    function addFiles(files) {
-      const remaining = MAX_PHOTOS - photos.length;
-      if (remaining <= 0) {
-        showToast(`이미 최대 ${MAX_PHOTOS}장 선택됨`, 'error');
-        return;
-      }
-      if (files.length > remaining) {
-        showToast(`${files.length}장 중 ${remaining}장만 추가됨`, '');
-        files = files.slice(0, remaining);
-      }
-      
-      files.forEach(file => {
-        const photo = { id: nextId++, file, dataUrl: null };
-        photos.push(photo);
-        const reader = new FileReader();
-        reader.onload = e => {
-          photo.dataUrl = e.target.result;
-          renderPhotos();
-        };
-        reader.readAsDataURL(file);
+    // ===== 파일 선택 이벤트 =====
+    [1, 2, 3].forEach(num => {
+      document.getElementById(`file${num}`).addEventListener('change', e => {
+        const file = e.target.files[0];
+        if (file) showPreview(num, file);
       });
-      renderPhotos();
-    }
+    });
     
-    function removePhoto(id) {
-      const idx = photos.findIndex(p => p.id === id);
-      if (idx >= 0) {
-        photos.splice(idx, 1);
-        renderPhotos();
-      }
-    }
-    
-    function renderPhotos() {
-      const grid = document.getElementById('photo-grid');
-      document.getElementById('counter').textContent = photos.length;
-      
-      if (photos.length === 0) {
-        grid.innerHTML = '<div class="empty-state" id="empty-state" style="grid-column: 1 / -1;">아직 선택된 사진이 없습니다</div>';
-        updateSubmitBtn();
-        updateAddBtn();
-        return;
-      }
-      
-      grid.innerHTML = '';
-      photos.forEach((photo, idx) => {
-        const card = document.createElement('div');
-        card.className = 'photo-card';
-        card.id = `card-${photo.id}`;
-        card.innerHTML = `
-          ${photo.dataUrl ? `<img src="${photo.dataUrl}" alt="">` : ''}
-          <div class="num">${idx + 1}</div>
-          <button class="remove" onclick="removePhoto(${photo.id})">✕</button>
+    function showPreview(slotNum, file) {
+      selectedFiles[slotNum] = file;
+      const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
+      const reader = new FileReader();
+      reader.onload = e => {
+        slot.classList.remove('error', 'uploading', 'success');
+        slot.classList.add('filled');
+        slot.innerHTML = `
+          <img src="${e.target.result}" alt="">
+          <div class="filename">${file.name}</div>
         `;
-        grid.appendChild(card);
-      });
-      updateSubmitBtn();
-      updateAddBtn();
+      };
+      reader.readAsDataURL(file);
+      updateSubmitButton();
     }
     
-    function updateSubmitBtn() {
+    function updateSubmitButton() {
       const btn = document.getElementById('submit-btn');
-      if (photos.length === 0) {
-        btn.disabled = true;
-        btn.textContent = "사진을 1장 이상 선택하세요";
-      } else {
-        btn.disabled = false;
-        btn.textContent = `📤 PC로 보내기 (${photos.length}장)`;
-      }
+      const allSet = selectedFiles[1] && selectedFiles[2] && selectedFiles[3];
+      btn.disabled = !allSet;
+      btn.textContent = allSet ? "📤 PC로 보내기"
+        : `사진 ${countSelected()}/3 선택됨 - 모두 선택하세요`;
     }
     
-    function updateAddBtn() {
-      const btn = document.getElementById('add-btn');
-      btn.disabled = photos.length >= MAX_PHOTOS;
-      btn.textContent = photos.length >= MAX_PHOTOS
-        ? "⛔ 최대 20장까지" : "➕ 한 장 추가";
+    function countSelected() {
+      return [1,2,3].filter(n => selectedFiles[n]).length;
     }
     
-    /**
-     * 하이브리드 병렬 처리:
-     * - 압축 동시 3개 (Producer pool)
-     * - 업로드 동시 3개 (Worker pool)
-     * - Producers(압축 3개) → Queue → Workers(업로드 3개) 파이프라인
-     */
-    const COMPRESS_CONCURRENCY = 3;
-    const UPLOAD_CONCURRENCY = 3;
-    
+    // ===== AES-GCM E2E 암호화 =====
+    // PC의 tmpfiles_client.derive_key()와 반드시 동일한 파라미터
+    const PBKDF2_SALT = new TextEncoder().encode('receipt-uploader-v1');
+    const PBKDF2_ITERATIONS = 100000;
+    const PASSPHRASE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 0/O/1/I/L 제외
+    const PASSPHRASE_LEN = 8; // 약 40bit 엔트로피
+
+    function genPassphrase() {
+      // 폰에서만 생성 — 절대 네트워크로 전송 금지
+      const arr = new Uint8Array(PASSPHRASE_LEN);
+      crypto.getRandomValues(arr);
+      return Array.from(arr, b => PASSPHRASE_ALPHABET[b % PASSPHRASE_ALPHABET.length]).join('');
+    }
+
+    async function deriveKey(passphrase) {
+      const enc = new TextEncoder();
+      const baseKey = await crypto.subtle.importKey(
+        'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: PBKDF2_SALT,
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256'
+        },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+      );
+    }
+
+    async function encryptBlob(blob, key) {
+      // 형식: IV(12) || ciphertext+tag (WebCrypto는 tag를 ciphertext 끝에 부착)
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const plaintext = await blob.arrayBuffer();
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        plaintext
+      );
+      const out = new Uint8Array(iv.length + ciphertext.byteLength);
+      out.set(iv, 0);
+      out.set(new Uint8Array(ciphertext), iv.length);
+      return new Blob([out], { type: 'application/octet-stream' });
+    }
+
+    // ===== 업로드 =====
     async function submitAll() {
-      if (photos.length === 0) return;
-
-      // 사용 횟수 집계 (사진은 수집 X, 클릭 횟수만 카운트)
-      if (window.goatcounter && window.goatcounter.count) {
-        window.goatcounter.count({ path: 'click-send', title: 'PC로 보내기 클릭', event: true });
-      }
-
       const btn = document.getElementById('submit-btn');
       btn.disabled = true;
-      btn.textContent = "처리 중...";
-      document.getElementById('add-btn').disabled = true;
-      document.querySelector('.multi-btn').disabled = true;
-      document.querySelectorAll('.photo-card .remove').forEach(b => b.disabled = true);
-      
-      const total = photos.length;
-      let compressedCount = 0;
-      let uploadedCount = 0;
-      
-      const updateBtnText = () => {
-        if (uploadedCount === total) {
-          btn.textContent = "마지막 단계...";
-        } else if (compressedCount < total) {
-          btn.textContent = `압축 ${compressedCount}/${total} · 업로드 ${uploadedCount}/${total}`;
-        } else {
-          btn.textContent = `업로드 ${uploadedCount}/${total}`;
-        }
-      };
-      
+      btn.textContent = "업로드 중...";
+
       try {
-        const urls = new Array(total);  // slot 순서 유지
-        const uploadQueue = [];
-        let producerDone = false;
-        let firstError = null;
-        
-        // === Producers: 압축 (동시 N개) ===
-        let nextCompressIdx = 0;
-        async function compressWorker() {
-          while (true) {
-            if (firstError) return;
-            const i = nextCompressIdx++;
-            if (i >= total) return;
-            const photo = photos[i];
-            try {
-              markCompressing(photo.id);
-              const compressedFile = await compressImage(photo.file);
-              compressedCount++;
-              updateBtnText();
-              uploadQueue.push({
-                slotIdx: i,
-                photoId: photo.id,
-                originalName: photo.file.name,
-                file: compressedFile,
-              });
-            } catch (e) {
-              firstError = firstError || e;
-              throw e;
-            }
-          }
+        // WebCrypto 지원 확인
+        if (!window.crypto || !window.crypto.subtle) {
+          throw new Error("이 브라우저는 암호화를 지원하지 않습니다 (HTTPS 필요)");
         }
-        const compressors = [];
-        for (let c = 0; c < COMPRESS_CONCURRENCY; c++) {
-          compressors.push(compressWorker());
+
+        // 0단계: passphrase 생성 + AES 키 유도 (1회만)
+        btn.textContent = "암호화 키 생성 중...";
+        const passphrase = genPassphrase();
+        const aesKey = await deriveKey(passphrase);
+
+        // 1단계: 사진 3장 각각 암호화 후 tmpfiles에 올림
+        const urls = [];
+        for (let i = 1; i <= 3; i++) {
+          markUploading(i);
+
+          // 암호화 (보통 ~수십~수백 ms)
+          const encryptedBlob = await encryptBlob(selectedFiles[i], aesKey);
+          const encryptedFile = new File(
+            [encryptedBlob],
+            selectedFiles[i].name + '.enc',
+            { type: 'application/octet-stream' }
+          );
+
+          const url = await uploadFile(encryptedFile, pct => {
+            updateSlotProgress(i, pct);
+          });
+          urls.push({
+            slot: i,
+            url: url,
+            originalName: selectedFiles[i].name,
+          });
+          markSuccess(i);
         }
-        const producer = (async () => {
-          await Promise.all(compressors);
-          producerDone = true;
-        })();
-        
-        // === Workers: 업로드 (동시 N개) ===
-        async function worker() {
-          while (true) {
-            if (firstError) return;
-            
-            if (uploadQueue.length === 0) {
-              if (producerDone) return;  // 더 들어올 거 없음
-              await sleep(50);            // Producer 대기
-              continue;
-            }
-            
-            const task = uploadQueue.shift();
-            try {
-              markUploading(task.photoId);
-              const url = await uploadFile(task.file, pct => {
-                updateProgress(task.photoId, pct);
-              });
-              urls[task.slotIdx] = {
-                slot: task.slotIdx + 1,
-                url: url,
-                originalName: task.originalName,
-              };
-              markSuccess(task.photoId);
-              uploadedCount++;
-              updateBtnText();
-            } catch (e) {
-              firstError = firstError || e;
-              throw e;
-            }
-          }
-        }
-        
-        // Producer + Workers 동시 실행
-        const workers = [];
-        for (let w = 0; w < UPLOAD_CONCURRENCY; w++) {
-          workers.push(worker());
-        }
-        await Promise.all([producer, ...workers]);
-        
-        // === 매니페스트 업로드 ===
+
+        // 2단계: 매니페스트(JSON)도 같은 키로 암호화 후 업로드
         const manifest = {
           createdAt: new Date().toISOString(),
-          photoCount: urls.length,
+          version: 'aes-gcm-1',
           photos: urls,
         };
-        const manifestBlob = new Blob([JSON.stringify(manifest)], { type: 'application/json' });
-        const manifestFile = new File([manifestBlob], 'manifest.json', { type: 'application/json' });
-        btn.textContent = "마지막 단계...";
+        const manifestPlain = new Blob(
+          [JSON.stringify(manifest)],
+          { type: 'application/json' }
+        );
+        const encryptedManifest = await encryptBlob(manifestPlain, aesKey);
+        const manifestFile = new File(
+          [encryptedManifest], 'manifest.json',
+          { type: 'application/octet-stream' }
+        );
         const manifestUrl = await uploadFile(manifestFile);
-        
-        const code = extractCode(manifestUrl);
-        if (!code) throw new Error("코드 추출 실패");
-        showResult(code);
+
+        // 3단계: URL에서 tmpfiles 코드 추출
+        const tmpCode = extractCode(manifestUrl);
+        if (!tmpCode) throw new Error("코드 추출 실패");
+
+        // 4단계: 사용자 표시 코드 = "{tmp_code}-{passphrase}"
+        // passphrase는 절대 네트워크로 보내지 않음 — 화면에만 표시
+        const displayCode = `${tmpCode}-${passphrase}`;
+        showResult(displayCode);
       } catch (e) {
         console.error(e);
         showToast(`업로드 실패: ${e.message}`, 'error');
@@ -544,106 +425,37 @@
       }
     }
     
-    function sleep(ms) {
-      return new Promise(resolve => setTimeout(resolve, ms));
-    }
-    
-    /**
-     * 이미지를 300KB 이하로 압축 (Canvas API).
-     * 1. EXIF Orientation 적용 (브라우저가 알아서 처리)
-     * 2. 긴 변이 1600px 넘으면 1600px로 다운스케일
-     * 3. quality 단계적으로 낮춰가며 300KB 이하 만들기
-     */
-    async function compressImage(file) {
-      const MAX_BYTES = 300 * 1024;
-      const MAX_DIM = 1600;
-      
-      // 이미지를 Canvas에 그려서 압축
-      const img = await loadImage(file);
-      
-      let { width, height } = img;
-      const longSide = Math.max(width, height);
-      if (longSide > MAX_DIM) {
-        const scale = MAX_DIM / longSide;
-        width = Math.round(width * scale);
-        height = Math.round(height * scale);
-      }
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-      
-      // quality 단계적으로
-      const qualities = [0.85, 0.75, 0.65, 0.55, 0.45, 0.35];
-      let blob = null;
-      for (const q of qualities) {
-        blob = await canvasToBlob(canvas, 'image/jpeg', q);
-        if (blob.size <= MAX_BYTES) break;
-      }
-      
-      // 그래도 큰 경우 해상도 더 줄임
-      while (blob.size > MAX_BYTES && Math.max(canvas.width, canvas.height) > 600) {
-        canvas.width = Math.round(canvas.width * 0.85);
-        canvas.height = Math.round(canvas.height * 0.85);
-        const ctx2 = canvas.getContext('2d');
-        ctx2.drawImage(img, 0, 0, canvas.width, canvas.height);
-        blob = await canvasToBlob(canvas, 'image/jpeg', 0.7);
-      }
-      
-      // Blob → File (원본 파일 이름 유지, 확장자만 jpg로)
-      const baseName = file.name.replace(/\.[^.]+$/, '') || 'photo';
-      return new File([blob], `${baseName}.jpg`, { type: 'image/jpeg' });
-    }
-    
-    function loadImage(file) {
-      return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
-        const img = new Image();
-        img.onload = () => {
-          URL.revokeObjectURL(url);
-          resolve(img);
-        };
-        img.onerror = () => {
-          URL.revokeObjectURL(url);
-          reject(new Error('이미지 로드 실패'));
-        };
-        img.src = url;
-      });
-    }
-    
-    function canvasToBlob(canvas, type, quality) {
-      return new Promise(resolve => {
-        canvas.toBlob(blob => resolve(blob), type, quality);
-      });
-    }
-    
-    function markCompressing(id) {
-      const card = document.getElementById(`card-${id}`);
-      if (!card) return;
-      card.classList.add('uploading');
-    }
-    
     function uploadFile(file, onProgress) {
       return new Promise((resolve, reject) => {
         const formData = new FormData();
         formData.append('file', file);
+        
         const xhr = new XMLHttpRequest();
         xhr.open('POST', 'https://tmpfiles.org/api/v1/upload');
+        
         if (onProgress) {
           xhr.upload.addEventListener('progress', e => {
-            if (e.lengthComputable) onProgress((e.loaded / e.total) * 100);
+            if (e.lengthComputable) {
+              onProgress((e.loaded / e.total) * 100);
+            }
           });
         }
+        
         xhr.onload = () => {
           if (xhr.status === 200) {
             try {
               const data = JSON.parse(xhr.responseText);
-              if (data.status === 'success') resolve(data.data.url);
-              else reject(new Error('서버 응답 오류'));
-            } catch (e) { reject(e); }
-          } else reject(new Error(`HTTP ${xhr.status}`));
+              if (data.status === 'success') {
+                resolve(data.data.url);
+              } else {
+                reject(new Error('서버 응답 오류'));
+              }
+            } catch (e) {
+              reject(e);
+            }
+          } else {
+            reject(new Error(`HTTP ${xhr.status}`));
+          }
         };
         xhr.onerror = () => reject(new Error('네트워크 오류'));
         xhr.send(formData);
@@ -651,39 +463,41 @@
     }
     
     function extractCode(url) {
+      // http://tmpfiles.org/35541093/manifest.json → 35541093
       const m = url.match(/tmpfiles\.org\/(\d+)\//);
       return m ? m[1] : null;
     }
     
-    function markUploading(id) {
-      const card = document.getElementById(`card-${id}`);
-      if (!card) return;
-      card.classList.add('uploading');
-      if (!card.querySelector('.progress')) {
+    // ===== UI 업데이트 =====
+    function markUploading(slotNum) {
+      const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
+      slot.classList.remove('success', 'error');
+      slot.classList.add('uploading');
+      // 진행 바 추가
+      if (!slot.querySelector('.progress')) {
         const bar = document.createElement('div');
         bar.className = 'progress';
-        bar.innerHTML = `<div class="progress-bar" id="bar-${id}"></div>`;
-        card.appendChild(bar);
+        bar.innerHTML = `<div class="progress-bar" id="bar-${slotNum}"></div>`;
+        slot.appendChild(bar);
       }
     }
     
-    function updateProgress(id, pct) {
-      const bar = document.getElementById(`bar-${id}`);
+    function updateSlotProgress(slotNum, pct) {
+      const bar = document.getElementById(`bar-${slotNum}`);
       if (bar) bar.style.width = pct + '%';
     }
     
-    function markSuccess(id) {
-      const card = document.getElementById(`card-${id}`);
-      if (!card) return;
-      card.classList.remove('uploading');
-      card.classList.add('success');
-      const bar = card.querySelector('.progress');
+    function markSuccess(slotNum) {
+      const slot = document.querySelector(`.slot[data-slot="${slotNum}"]`);
+      slot.classList.remove('uploading', 'error');
+      slot.classList.add('success');
+      const bar = slot.querySelector('.progress');
       if (bar) bar.remove();
-      if (!card.querySelector('.status')) {
-        const s = document.createElement('div');
-        s.className = 'status';
-        s.textContent = '✓';
-        card.appendChild(s);
+      if (!slot.querySelector('.status-icon')) {
+        const icon = document.createElement('div');
+        icon.className = 'status-icon';
+        icon.textContent = '✓';
+        slot.appendChild(icon);
       }
     }
     
@@ -692,11 +506,12 @@
       document.getElementById('result').classList.add('show');
       document.getElementById('submit-btn').style.display = 'none';
       document.getElementById('result').scrollIntoView({behavior: 'smooth'});
-      showToast(`${photos.length}장 업로드 완료!`, 'success');
+      showToast('업로드 완료! 코드를 PC에 입력하세요.', 'success');
     }
     
     function copyCode() {
       const code = document.getElementById('code-display').textContent;
+      // 모바일 호환 복사
       const tmp = document.createElement('input');
       tmp.value = code;
       document.body.appendChild(tmp);
@@ -723,7 +538,5 @@
       }, 2500);
     }
   </script>
-  <!-- GoatCounter: 익명 방문/클릭 카운트 (사진/IP는 수집되지 않음) -->
-  <script data-goatcounter="https://myreceipt.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
