@@ -179,20 +179,33 @@ def fetch_manifest(code: str, passphrase: Optional[str] = None) -> dict:
 
 def download_photo(url: str, dest: Path,
                    progress_cb: Callable[[int, int], None] = None,
-                   passphrase: Optional[str] = None) -> Path:
-    """사진 1장 다운로드 (진행률 콜백 + 선택적 복호화)."""
+                   passphrase: Optional[str] = None,
+                   _key_cache: Optional[bytes] = None) -> Path:
+    """사진 1장 다운로드 (진행률 콜백 + 선택적 복호화).
+
+    thread-safe: urllib는 각 호출마다 새 connection을 만들므로 안전함.
+    여러 스레드에서 동시 호출 가능.
+
+    _key_cache: 키를 미리 유도해두고 넘기면 PBKDF2(10만회)를 매번 안 돌림
+                (병렬 다운로드 시 유용)
+    """
     download_url = normalize_url(url)
     req = urllib.request.Request(
         download_url,
-        headers={'User-Agent': 'Mozilla/5.0 ReceiptInserter/1.0'}
+        headers={
+            'User-Agent': 'Mozilla/5.0 ReceiptInserter/1.0',
+            'Accept-Encoding': 'gzip',  # 트래픽 절감 (서버가 지원하면)
+        }
     )
 
+    # 더 큰 청크 = 시스템 콜 줄여서 처리량 ↑ (특히 병렬 다운로드 시)
+    CHUNK_SIZE = 64 * 1024
     with urllib.request.urlopen(req, timeout=60) as resp:
         total = int(resp.headers.get('Content-Length', 0))
         chunks = []
         downloaded = 0
         while True:
-            chunk = resp.read(8192)
+            chunk = resp.read(CHUNK_SIZE)
             if not chunk:
                 break
             chunks.append(chunk)
@@ -204,7 +217,7 @@ def download_photo(url: str, dest: Path,
 
     # 암호화 모드: 복호화 후 디스크에 평문으로 저장
     if passphrase:
-        key = derive_key(passphrase)
+        key = _key_cache if _key_cache is not None else derive_key(passphrase)
         payload = decrypt_blob(payload, key)
 
     dest.parent.mkdir(parents=True, exist_ok=True)
