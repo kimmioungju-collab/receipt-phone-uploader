@@ -256,7 +256,8 @@
       </div>
     </div>
     <div class="footer">
-      tmpfiles.org를 통해 60분간 임시 보관됩니다.
+      🔒 AES-256-GCM E2E 암호화 후 tmpfiles.org에 60분간 임시 보관됩니다.<br>
+      비밀번호(코드 뒷부분)는 폰에서만 생성되며 서버로 전송되지 않습니다.
     </div>
   </div>
   
@@ -302,18 +303,85 @@
       return [1,2,3].filter(n => selectedFiles[n]).length;
     }
     
+    // ===== AES-GCM E2E 암호화 =====
+    // PC의 tmpfiles_client.derive_key()와 반드시 동일한 파라미터
+    const PBKDF2_SALT = new TextEncoder().encode('receipt-uploader-v1');
+    const PBKDF2_ITERATIONS = 100000;
+    const PASSPHRASE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 0/O/1/I/L 제외
+    const PASSPHRASE_LEN = 8; // 약 40bit 엔트로피
+
+    function genPassphrase() {
+      // 폰에서만 생성 — 절대 네트워크로 전송 금지
+      const arr = new Uint8Array(PASSPHRASE_LEN);
+      crypto.getRandomValues(arr);
+      return Array.from(arr, b => PASSPHRASE_ALPHABET[b % PASSPHRASE_ALPHABET.length]).join('');
+    }
+
+    async function deriveKey(passphrase) {
+      const enc = new TextEncoder();
+      const baseKey = await crypto.subtle.importKey(
+        'raw', enc.encode(passphrase), 'PBKDF2', false, ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: PBKDF2_SALT,
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256'
+        },
+        baseKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+      );
+    }
+
+    async function encryptBlob(blob, key) {
+      // 형식: IV(12) || ciphertext+tag (WebCrypto는 tag를 ciphertext 끝에 부착)
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const plaintext = await blob.arrayBuffer();
+      const ciphertext = await crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        plaintext
+      );
+      const out = new Uint8Array(iv.length + ciphertext.byteLength);
+      out.set(iv, 0);
+      out.set(new Uint8Array(ciphertext), iv.length);
+      return new Blob([out], { type: 'application/octet-stream' });
+    }
+
     // ===== 업로드 =====
     async function submitAll() {
       const btn = document.getElementById('submit-btn');
       btn.disabled = true;
       btn.textContent = "업로드 중...";
-      
+
       try {
-        // 1단계: 사진 3장 각각 tmpfiles에 올림
+        // WebCrypto 지원 확인
+        if (!window.crypto || !window.crypto.subtle) {
+          throw new Error("이 브라우저는 암호화를 지원하지 않습니다 (HTTPS 필요)");
+        }
+
+        // 0단계: passphrase 생성 + AES 키 유도 (1회만)
+        btn.textContent = "암호화 키 생성 중...";
+        const passphrase = genPassphrase();
+        const aesKey = await deriveKey(passphrase);
+
+        // 1단계: 사진 3장 각각 암호화 후 tmpfiles에 올림
         const urls = [];
         for (let i = 1; i <= 3; i++) {
           markUploading(i);
-          const url = await uploadFile(selectedFiles[i], pct => {
+
+          // 암호화 (보통 ~수십~수백 ms)
+          const encryptedBlob = await encryptBlob(selectedFiles[i], aesKey);
+          const encryptedFile = new File(
+            [encryptedBlob],
+            selectedFiles[i].name + '.enc',
+            { type: 'application/octet-stream' }
+          );
+
+          const url = await uploadFile(encryptedFile, pct => {
             updateSlotProgress(i, pct);
           });
           urls.push({
@@ -323,28 +391,32 @@
           });
           markSuccess(i);
         }
-        
-        // 2단계: URL 매니페스트를 만들어서 다시 업로드
+
+        // 2단계: 매니페스트(JSON)도 같은 키로 암호화 후 업로드
         const manifest = {
           createdAt: new Date().toISOString(),
+          version: 'aes-gcm-1',
           photos: urls,
         };
-        const manifestBlob = new Blob(
+        const manifestPlain = new Blob(
           [JSON.stringify(manifest)],
           { type: 'application/json' }
         );
+        const encryptedManifest = await encryptBlob(manifestPlain, aesKey);
         const manifestFile = new File(
-          [manifestBlob], 'manifest.json',
-          { type: 'application/json' }
+          [encryptedManifest], 'manifest.json',
+          { type: 'application/octet-stream' }
         );
         const manifestUrl = await uploadFile(manifestFile);
-        
-        // 3단계: URL에서 코드 추출
-        // tmpfiles.org/35541093/test.json → 35541093
-        const code = extractCode(manifestUrl);
-        if (!code) throw new Error("코드 추출 실패");
-        
-        showResult(code);
+
+        // 3단계: URL에서 tmpfiles 코드 추출
+        const tmpCode = extractCode(manifestUrl);
+        if (!tmpCode) throw new Error("코드 추출 실패");
+
+        // 4단계: 사용자 표시 코드 = "{tmp_code}-{passphrase}"
+        // passphrase는 절대 네트워크로 보내지 않음 — 화면에만 표시
+        const displayCode = `${tmpCode}-${passphrase}`;
+        showResult(displayCode);
       } catch (e) {
         console.error(e);
         showToast(`업로드 실패: ${e.message}`, 'error');

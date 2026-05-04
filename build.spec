@@ -52,7 +52,13 @@ a = Analysis(
         ('assets/template.hwpx', 'assets'),
         ('assets/icon.ico', 'assets'),
     ],
-    hiddenimports=[],
+    hiddenimports=[
+        # cryptography 패키지의 동적 임포트 (AES-GCM 복호화용)
+        'cryptography.hazmat.primitives.ciphers.aead',
+        'cryptography.hazmat.primitives.kdf.pbkdf2',
+        'cryptography.hazmat.primitives.hashes',
+        'cryptography.hazmat.backends.openssl',
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -117,6 +123,10 @@ exe = EXE(
     upx_exclude=[
         'vcruntime140.dll',
         'python311.dll', 'python312.dll', 'python313.dll',
+        # cryptography의 OpenSSL DLL은 UPX 압축 시 손상될 수 있음
+        'libcrypto-3.dll', 'libssl-3.dll',
+        'libcrypto-3-x64.dll', 'libssl-3-x64.dll',
+        '_rust.pyd',  # cryptography의 Rust 백엔드
     ],
     runtime_tmpdir=None,
     console=False,

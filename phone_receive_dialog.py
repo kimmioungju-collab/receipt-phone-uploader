@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 import qrcode
 
 from tmpfiles_client import (
-    fetch_manifest, download_photo, is_valid_code,
+    fetch_manifest, download_photo, is_valid_code, parse_code,
 )
 
 
@@ -36,39 +36,42 @@ class DownloadWorker(QThread):
     finished_ok = Signal()
     failed = Signal(str)
     
-    def __init__(self, code: str, dest_dir: Path):
+    def __init__(self, code: str, dest_dir: Path, passphrase: str | None = None):
         super().__init__()
         self.code = code
         self.dest_dir = dest_dir
-    
+        self.passphrase = passphrase  # None이면 평문 모드(레거시)
+
     def run(self):
         try:
-            self.progress.emit(5, "매니페스트 다운로드 중...")
-            manifest = fetch_manifest(self.code)
+            mode_str = "🔒 암호화" if self.passphrase else "평문(레거시)"
+            self.progress.emit(5, f"매니페스트 다운로드 중... [{mode_str}]")
+            manifest = fetch_manifest(self.code, self.passphrase)
             photos = manifest['photos']
             total = len(photos)
-            
+
             # 진행률은 5%(매니페스트) + 90%(사진) + 5%(완료) 분배
             for i, photo in enumerate(photos):
                 slot_num = photo.get('slot', i + 1)
                 url = photo['url']
                 original_name = photo.get('originalName', f'photo{slot_num}.jpg')
-                
+
                 base_pct = 5 + int((i / total) * 90)
+                action = "복호화" if self.passphrase else "다운로드"
                 self.progress.emit(
                     base_pct,
-                    f"사진 {slot_num} 다운로드 중... ({i+1}/{total})"
+                    f"사진 {slot_num} {action} 중... ({i+1}/{total})"
                 )
-                
+
                 ext = '.jpg'
                 if '.' in original_name:
                     ext = '.' + original_name.rsplit('.', 1)[-1].lower()
-                
+
                 local_path = self.dest_dir / f"phone_slot{slot_num}{ext}"
-                download_photo(url, local_path)
-                
+                download_photo(url, local_path, passphrase=self.passphrase)
+
                 self.photo_ready.emit(slot_num, local_path, original_name)
-            
+
             self.progress.emit(100, "완료")
             self.finished_ok.emit()
         except Exception as e:
@@ -157,7 +160,7 @@ class PhoneReceiveDialog(QDialog):
         code_row.setSpacing(8)
         
         self.code_input = QLineEdit()
-        self.code_input.setPlaceholderText("예: 35541093")
+        self.code_input.setPlaceholderText("예: 35541093-X7K2QM4P (또는 평문 모드: 35541093)")
         self.code_input.setStyleSheet(
             "QLineEdit { font-size: 22px; font-weight: bold; "
             "padding: 10px 14px; border: 2px solid #cbd5e1; "
@@ -165,7 +168,7 @@ class PhoneReceiveDialog(QDialog):
             "font-family: 'Courier New', monospace; }"
             "QLineEdit:focus { border-color: #2563eb; }"
         )
-        self.code_input.setMaxLength(12)
+        self.code_input.setMaxLength(48)  # 숫자(10) + 하이픈 + passphrase(최대 32) + 여유
         self.code_input.textChanged.connect(self._on_code_changed)
         self.code_input.returnPressed.connect(self._on_receive_clicked)
         code_row.addWidget(self.code_input, 1)
@@ -242,29 +245,39 @@ class PhoneReceiveDialog(QDialog):
         self.status_label.setText("주소가 복사되었습니다")
     
     def _on_code_changed(self, text: str):
-        # 숫자만 남기기
-        digits_only = ''.join(c for c in text if c.isdigit())
-        if digits_only != text:
-            self.code_input.setText(digits_only)
+        # 허용 문자만 남기기 (숫자, A-Z, 하이픈)
+        allowed = ''.join(
+            c for c in text.upper()
+            if c.isdigit() or ('A' <= c <= 'Z') or c == '-'
+        )
+        if allowed != text:
+            self.code_input.setText(allowed)
             return
-        
+
         valid = is_valid_code(text)
         self.receive_btn.setEnabled(valid)
-    
+
     def _on_receive_clicked(self):
-        code = self.code_input.text().strip()
-        if not is_valid_code(code):
+        raw = self.code_input.text().strip()
+        if not is_valid_code(raw):
             QMessageBox.warning(self, "코드 오류", "올바른 코드 형식이 아닙니다.")
             return
-        
+
+        # 코드 파싱: tmp_code + (옵션) passphrase
+        try:
+            tmp_code, passphrase = parse_code(raw)
+        except ValueError as e:
+            QMessageBox.warning(self, "코드 오류", str(e))
+            return
+
         # UI 잠금
         self.code_input.setEnabled(False)
         self.receive_btn.setEnabled(False)
         self.progress.setVisible(True)
         self.progress.setValue(0)
-        
+
         # 백그라운드 시작
-        self.worker = DownloadWorker(code, self.download_dir)
+        self.worker = DownloadWorker(tmp_code, self.download_dir, passphrase)
         self.worker.progress.connect(self._on_progress)
         self.worker.photo_ready.connect(self._on_photo_ready)
         self.worker.finished_ok.connect(self._on_finished)
